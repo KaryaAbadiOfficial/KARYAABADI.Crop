@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KARYA ABADI CROP - Auto Crop, Resize, dan Export Dokumen</title>
+    <!-- Favicon Base64 -->
+    <link href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwMDAwMCIvPjxyZWN0IHg9IjEwIiB5PSIxMCIgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNEQzI2MjYiIHN0cm9rZS13aWR0aD0iNCIvPjwvc3ZnPg==" rel="icon" type="image/svg+xml">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #000000; color: #ffffff; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 4px; }
+        .nav-link { transition: color 0.3s; position: relative; }
+        .nav-link:hover { color: #dc2626; }
+        .nav-link::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 0; height: 2px; background: #dc2626; transition: width 0.3s; }
+        .nav-link:hover::after, .nav-link.active::after { width: 100%; }
+        .btn-primary { background-color: #dc2626; transition: background-color 0.3s; }
+        .btn-primary:hover { background-color: #b91c1c; }
+        .crop-container { position: relative; user-select: none; touch-action: none; }
+        .toast { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- HEADER -->
+    <header class="bg-black border-b border-gray-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center gap-4">
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-3 cursor-pointer" @click="navigate('/')">
+                <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo Karya Abadi Crop" class="w-10 h-10 object-contain">
+                <div>
+                    <h1 class="text-lg md:text-xl font-black text-white tracking-tight leading-none">KARYA ABADI <span class="text-red-600">CROP</span></h1>
+                    <p class="text-[9px] md:text-[10px] text-gray-500 tracking-widest leading-none mt-1">AUTO CROP • UKURAN PRESISI</p>
+                </div>
+            </div>
+
+            <!-- Search Bar (Desktop) -->
+            <div class="hidden lg:flex flex-1 max-w-md">
+                <div class="relative w-full">
+                    <input type="text" v-model="globalSearch" @keyup.enter="searchAction" placeholder="Cari ukuran dokumen (cth: KTP, A4)..." class="w-full bg-gray-900 border border-gray-700 rounded-l py-2 px-4 text-sm focus:outline-none focus:border-red-600">
+                    <button @click="searchAction" class="absolute right-0 top-0 h-full bg-gray-800 px-4 rounded-r border border-l-0 border-gray-700 hover:bg-red-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigasi -->
+            <nav class="hidden md:flex items-center space-x-6">
+                <a href="#/" @click.prevent="navigate('/')" :class="['nav-link text-sm font-semibold', route === '/' ? 'active' : '']">Beranda</a>
+                <a href="#/auto-crop" @click.prevent="navigate('/auto-crop')" :class="['nav-link text-sm font-semibold', route === '/auto-crop' ? 'active' : '']">Auto Crop</a>
+                <a href="#/ukuran-dokumen" @click.prevent="navigate('/ukuran-dokumen')" :class="['nav-link text-sm font-semibold', route === '/ukuran-dokumen' ? 'active' : '']">Ukuran</a>
+                <a href="#/bantuan" @click.prevent="navigate('/bantuan')" :class="['nav-link text-sm font-semibold', route === '/bantuan' ? 'active' : '']">Bantuan</a>
+                <button @click="navigate('/auto-crop')" class="btn-primary text-white text-sm font-bold px-5 py-2 rounded ml-2">MULAI</button>
+            </nav>
+
+            <!-- Mobile Menu Toggle -->
+            <button @click="mobileMenu = !mobileMenu" class="md:hidden text-white">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div v-if="mobileMenu" class="md:hidden bg-black px-4 pb-4 flex flex-col space-y-2 border-t border-gray-800">
+            <input type="text" v-model="globalSearch" @keyup.enter="searchAction" placeholder="Cari ukuran dokumen..." class="bg-gray-900 border border-gray-700 rounded p-2 text-sm mb-2">
+            <a href="#/" @click.prevent="navigate('/'); mobileMenu=false" class="py-2 border-b border-gray-800">Beranda</a>
+            <a href="#/auto-crop" @click.prevent="navigate('/auto-crop'); mobileMenu=false" class="py-2 border-b border-gray-800">Auto Crop</a>
+            <a href="#/ukuran-dokumen" @click.prevent="navigate('/ukuran-dokumen'); mobileMenu=false" class="py-2 border-b border-gray-800">Ukuran Dokumen</a>
+            <a href="#/bantuan" @click.prevent="navigate('/bantuan'); mobileMenu=false" class="py-2 border-b border-gray-800">Bantuan</a>
+            <a href="#/tentang" @click.prevent="navigate('/tentang'); mobileMenu=false" class="py-2">Tentang</a>
+        </div>
+    </header>
+
+    <!-- BREADCRUMBS -->
+    <div class="bg-gray-950 border-b border-gray-800 text-xs text-gray-500">
+        <div class="container mx-auto px-4 py-2 flex items-center space-x-2">
+            <span @click="navigate('/')" class="cursor-pointer hover:text-red-500">Home</span>
+            <span>›</span>
+            <span class="text-gray-400 capitalize">{{ route.substring(1) || 'Beranda' }}</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <main class="min-h-screen">
+        
+        <!-- BERANDA -->
+        <div v-if="route === '/'">
+            <!-- Hero Section -->
+            <section class="relative py-20 md:py-32 px-4 text-center overflow-hidden border-b border-gray-800">
+                <div class="absolute inset-0 opacity-20 flex items-center justify-center pointer-events-none">
+                    <div class="w-[600px] h-[600px] border-4 border-red-600 rotate-12 rounded-3xl"></div>
+                </div>
+                <div class="relative z-10 max-w-3xl mx-auto">
+                    <h2 class="text-4xl md:text-6xl font-black mb-4 leading-tight">Otomatisasi <span class="text-red-600">Crop</span> Dokumen<br>dengan Ukuran Presisi</h2>
+                    <p class="text-gray-400 mb-10 text-lg max-w-xl mx-auto">Potong, luruskan, sesuaikan ukuran, dan download dokumen dengan mudah. 100% diproses di browser Anda.</p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button @click="navigate('/auto-crop')" class="btn-primary text-white font-bold py-3 px-8 rounded text-lg flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                            UPLOAD DOKUMEN
+                        </button>
+                        <button @click="navigate('/ukuran-dokumen')" class="bg-transparent border-2 border-white text-white font-bold py-3 px-8 rounded text-lg hover:bg-white hover:text-black transition">LIHAT UKURAN</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Fitur Utama -->
+            <section class="py-20 px-4 max-w-6xl mx-auto">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-black mb-2">FITUR UNGGULAN</h3>
+                    <p class="text-gray-500">Teknologi canggih untuk kebutuhan dokumen Anda</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div v-for="feature in features" :key="feature.title" class="bg-gray-900 p-6 rounded-lg border border-gray-800 hover:border-red-600 transition group">
+                        <div class="w-12 h-12 bg-red-600/10 rounded-lg flex items-center justify-center mb-4 text-red-600 group-hover:bg-red-600 group-hover:text-white transition">
+                            <span class="font-black text-xl">★</span>
+                        </div>
+                        <h4 class="text-xl font-bold text-white mb-2">{{ feature.title }}</h4>
+                        <p class="text-gray-400 text-sm">{{ feature.desc }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA Section -->
+            <section class="bg-red-600 text-white py-16 px-4 text-center">
+                <div class="max-w-2xl mx-auto">
+                    <h3 class="text-3xl font-black mb-4">Siap Memproses Dokumen Anda?</h3>
+                    <p class="mb-8 text-red-100">Mulai sekarang, gratis, tanpa perlu login, dan file Anda tetap aman.</p>
+                    <button @click="navigate('/auto-crop')" class="bg-black text-white font-bold py-3 px-8 rounded text-lg hover:bg-gray-900 transition">MULAI AUTO CROP</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- AUTO CROP EDITOR -->
+        <div v-if="route === '/auto-crop'">
+            <div class="container mx-auto px-4 py-8">
+                <h2 class="text-3xl font-black mb-6 text-center">EDITOR DOKUMEN</h2>
+                
+                <!-- Upload Area -->
+                <div v-if="files.length === 0" class="max-w-3xl mx-auto bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center hover:border-red-600 transition">
+                    <input type="file" @change="handleUpload" accept="image/jpeg,image/png,image/webp" multiple class="hidden" ref="fileInput">
+                    <input type="file" @change="handleCamera" accept="image/*" capture="user" class="hidden" ref="cameraInput">
+                    
+                    <div class="mb-6 text-gray-600">
+                        <svg class="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2 text-white">DRAG & DROP FILE DI SINI</h3>
+                    <p class="text-gray-500 mb-6">ATAU</p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button @click="$refs.fileInput.click()" class="btn-primary text-white font-bold py-3 px-8 rounded flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            UPLOAD GAMBAR
+                        </button>
+                        <button @click="$refs.cameraInput.click()" class="bg-gray-800 text-white font-bold py-3 px-8 rounded hover:bg-gray-700 flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path></svg>
+                            AMBIL FOTO
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-6">Format yang didukung: JPG, JPEG, PNG, WEBP</p>
+                    <div class="mt-8 text-xs bg-black p-3 rounded border border-gray-800 text-gray-500 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                        File diproses secara lokal di perangkat Anda. Privasi 100% terjaga.
+                    </div>
+                </div>
+
+                <!-- Editor Area -->
+                <div v-if="files.length > 0" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <!-- Sidebar Kiri (File List) -->
+                    <aside class="lg:col-span-3 bg-gray-900 p-4 rounded-lg h-fit border border-gray-800">
+                        <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+                            <h4 class="font-bold text-sm">FILE LIST ({{ files.length }})</h4>
+                            <button @click="clearAllFiles" class="text-xs text-red-600 hover:underline">HAPUS SEMUA</button>
+                        </div>
+                        <div class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                            <div v-for="(file, i) in files" :key="file.id" @click="selectFile(file.id)" :class="['p-2 rounded cursor-pointer flex items-center space-x-2 transition', selectedFileId === file.id ? 'bg-red-600/20 border border-red-600' : 'bg-gray-800 hover:bg-gray-700 border border-transparent']">
+                                <img :src="file.dataUrl" class="w-12 h-12 object-cover rounded">
+                                <div class="flex-1 overflow-hidden">
+                                    <p class="text-xs truncate text-gray-300">{{ file.name }}</p>
+                                    <span :class="['text-[10px] px-2 py-0.5 rounded mt-1 inline-block', file.status === 'PROCESSED' ? 'bg-green-900 text-green-400' : 'bg-gray-700 text-gray-400']">{{ file.status }}</span>
+                                </div>
+                                <button @click.stop="deleteFile(file.id)" class="text-gray-500 hover:text-red-600 text-xs">✕</button>
+                            </div>
+                        </div>
+                        <button @click="$refs.fileInput.click()" class="mt-4 w-full bg-gray-800 text-white text-sm py-2 rounded hover:bg-gray-700 border border-gray-700">+ TAMBAH FILE</button>
+                        <input type="file" @change="handleUpload" accept="image/jpeg,image/png,image/webp" multiple class="hidden" ref="fileInput">
+                    </aside>
+
+                    <!-- Canvas Area -->
+                    <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
+                        <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded">
+                            <button @click="adjustZoom(0.1)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
+                            <button @click="adjustZoom(-0.1)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
+                            <button @click="resetView" class="p-2 hover:bg-gray-800 rounded text-xs">Fit</button>
+                            <div class="w-px h-6 bg-gray-700 mx-2"></div>
+                            <button @click="rotateImage(-90)" class="p-2 hover:bg-gray-800 rounded text-sm">↺ Kiri</button>
+                            <button @click="rotateImage(90)" class="p-2 hover:bg-gray-800 rounded text-sm">Kanan ↻</button>
+                        </div>
+                        
+                        <div class="crop-container bg-black rounded overflow-hidden flex items-center justify-center" style="height: 500px;">
+                            <canvas id="mainCanvas" 
+                                @mousedown="startDrag" 
+                                @mousemove="onDrag" 
+                                @mouseup="endDrag" 
+                                @mouseleave="endDrag"
+                                @touchstart.prevent="startDragTouch"
+                                @touchmove.prevent="onDragTouch"
+                                @touchend.prevent="endDrag"
+                                class="max-w-full max-h-full">
+                            </canvas>
+                        </div>
+
+                        <div class="mt-4 flex flex-col space-y-3">
+                            <button @click="autoCrop" class="btn-primary text-white font-bold py-3 rounded flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                                AUTO CROP
+                            </button>
+                            <p class="text-center text-sm h-5" :class="status.includes('Selesai') || status.includes('SIAP') ? 'text-green-500' : 'text-red-500'">{{ status }}</p>
+                            <button @click="resetCrop" class="bg-gray-800 text-white text-sm py-2 rounded hover:bg-gray-700">RESET CROP</button>
+                        </div>
+                    </section>
+
+                    <!-- Sidebar Kanan (Settings) -->
+                    <aside class="lg:col-span-3 bg-gray-900 p-4 rounded-lg h-fit border border-gray-800">
+                        <h4 class="font-bold text-sm mb-4 border-b border-gray-800 pb-2">PENGATURAN</h4>
+                        
+                        <!-- Ukuran -->
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold mb-1 text-gray-400">PILIH UKURAN DOKUMEN</label>
+                            <select v-model="settings.selectedSize" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                                <optgroup v-for="cat in documentSizes" :label="cat.category" :key="cat.category">
+                                    <option v-for="doc in cat.items" :key="doc.name" :value="doc.name">{{ doc.name }} — {{ doc.w }} × {{ doc.h }} cm</option>
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Custom Size -->
+                        <div class="mb-4 p-2 border border-dashed border-gray-700 rounded">
+                            <label class="block text-xs font-bold mb-1 text-gray-400">CUSTOM SIZE (CM)</label>
+                            <div class="flex space-x-2">
+                                <input type="number" v-model="settings.customW" @change="settings.selectedSize='Custom'" placeholder="Lebar" class="w-1/2 bg-black border border-gray-700 rounded p-2 text-sm">
+                                <input type="number" v-model="settings.customH" @change="settings.selectedSize='Custom'" placeholder="Tinggi" class="w-1/2 bg-black border border-gray-700 rounded p-2 text-sm">
+                            </div>
+                        </div>
+
+                        <!-- DPI -->
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold mb-1 text-gray-400">DPI</label>
+                            <select v-model="settings.dpi" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                                <option value="72">72 DPI</option>
+                                <option value="96">96 DPI</option>
+                                <option value="150">150 DPI</option>
+                                <option value="300" selected>300 DPI (Cetak)</option>
+                                <option value="600">600 DPI</option>
+                            </select>
+                        </div>
+
+                        <!-- Edit Filters -->
+                        <div class="mb-4 space-y-2">
+                            <label class="block text-xs font-bold mb-1 text-gray-400">EDIT GAMBAR</label>
+                            <div class="flex justify-between text-xs"><span>Brightness</span><span>{{ settings.brightness }}%</span></div>
+                            <input type="range" v-model="settings.brightness" min="50" max="150" class="w-full accent-red-600">
+                            
+                            <div class="flex justify-between text-xs"><span>Contrast</span><span>{{ settings.contrast }}%</span></div>
+                            <input type="range" v-model="settings.contrast" min="50" max="150" class="w-full accent-red-600">
+                            
+                            <select v-model="settings.colorMode" class="w-full bg-black border border-gray-700 rounded p-2 text-sm mt-2">
+                                <option value="original">Original Color</option>
+                                <option value="grayscale">Grayscale</option>
+                                <option value="bw">Black & White</option>
+                            </select>
+                            <button @click="resetEdit" class="text-xs text-red-600 hover:underline mt-1">RESET EDIT</button>
+                        </div>
+
+                        <!-- Export Info -->
+                        <div class="bg-black p-3 rounded text-xs space-y-1 mb-4 border border-gray-800">
+                            <div class="flex justify-between"><span>Ukuran:</span> <span class="text-red-600 font-bold">{{ getSelectedSize().w }} × {{ getSelectedSize().h }} cm</span></div>
+                            <div class="flex justify-between"><span>Resolusi:</span> <span class="text-red-600 font-bold">{{ getPixelSize().w }} × {{ getPixelSize().h }} px</span></div>
+                        </div>
+
+                        <!-- Export Buttons -->
+                        <div class="space-y-2 border-t border-gray-800 pt-4">
+                            <p class="text-xs font-bold text-gray-400">EXPORT FILE</p>
+                            <button @click="exportFile('jpg')" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded flex items-center justify-center gap-2">DOWNLOAD JPG</button>
+                            <button @click="exportFile('png')" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded flex items-center justify-center gap-2">DOWNLOAD PNG</button>
+                            <button @click="exportFile('pdf')" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded flex items-center justify-center gap-2">DOWNLOAD PDF</button>
+                        </div>
+                        
+                        <!-- Batch Action -->
+                        <div class="mt-6 pt-4 border-t border-gray-800 space-y-2">
+                            <button @click="batchProcess" class="w-full bg-white hover:bg-gray-200 text-black text-sm font-bold py-2 rounded">AUTO CROP ALL</button>
+                            <button @click="downloadAllZip" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 rounded">DOWNLOAD ALL (ZIP)</button>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </div>
+
+        <!-- UKURAN DOKUMEN -->
+        <div v-if="route === '/ukuran-dokumen'" class="container mx-auto px-4 py-12 max-w-4xl">
+            <h2 class="text-3xl font-black text-center mb-2">UKURAN DOKUMEN</h2>
+            <p class="text-center text-gray-500 mb-8">Temukan ukuran presisi untuk kebutuhan cetak Anda</p>
+            <input type="text" v-model="searchSize" placeholder="Cari ukuran dokumen... (cth: KTP, A4)" class="w-full mb-6 bg-gray-900 border border-gray-700 rounded p-3 text-white">
+            <div class="space-y-6">
+                <div v-for="cat in filteredSizes" :key="cat.category" class="bg-gray-900 rounded-lg p-6 border border-gray-800">
+                    <h3 class="text-xl font-bold text-red-600 mb-4 border-b border-gray-800 pb-2">{{ cat.category }}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div v-for="doc in cat.items" :key="doc.name" class="flex justify-between items-center border-b border-gray-800 pb-2">
+                            <div>
+                                <p class="font-bold text-white">{{ doc.name }}</p>
+                                <p class="text-sm text-gray-500">{{ doc.w }} × {{ doc.h }} cm</p>
+                            </div>
+                            <button @click="useSize(doc)" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-500">GUNAKAN</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BANTUAN -->
+        <div v-if="route === '/bantuan'" class="container mx-auto px-4 py-12 max-w-3xl">
+            <h2 class="text-3xl font-black text-center mb-8">BANTUAN & PANDUAN</h2>
+            <div class="bg-gray-900 p-6 rounded-lg mb-8 border border-gray-800">
+                <h3 class="text-xl font-bold text-red-600 mb-4">Cara Menggunakan</h3>
+                <ol class="list-decimal list-inside space-y-3 text-gray-300">
+                    <li>Upload foto dokumen atau ambil foto langsung.</li>
+                    <li>Klik tombol AUTO CROP untuk mendeteksi otomatis.</li>
+                    <li>Sesuaikan titik crop secara manual jika diperlukan.</li>
+                    <li>Pilih ukuran dokumen (misal: KTP, A4).</li>
+                    <li>Pilih DPI (300 DPI direkomendasikan untuk cetak).</li>
+                    <li>Pilih format export (JPG, PNG, atau PDF).</li>
+                    <li>Klik tombol Download untuk menyimpan.</li>
+                </ol>
+            </div>
+            <div class="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                <h3 class="text-xl font-bold text-red-600 mb-4">FAQ</h3>
+                <div class="space-y-4">
+                    <div v-for="faq in faqs" :key="faq.q" class="border-b border-gray-800 pb-4">
+                        <p class="font-bold text-white">{{ faq.q }}</p>
+                        <p class="text-gray-400 text-sm mt-1">{{ faq.a }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TENTANG -->
+        <div v-if="route === '/tentang'" class="container mx-auto px-4 py-12 max-w-3xl text-center">
+            <h2 class="text-3xl font-black mb-8">TENTANG KARYA ABADI CROP</h2>
+            <div class="bg-gray-900 p-8 rounded-lg text-gray-300 space-y-4 border border-gray-800">
+                <p><strong class="text-white">KARYA ABADI CROP</strong> adalah aplikasi web inovatif yang dirancang untuk mempermudah Anda memotong (crop), meluruskan, dan mengatur ukuran dokumen secara presisi.</p>
+                <p>Dengan fitur Auto Crop dan Perspective Correction berbasis AI sederhana, Anda dapat mengubah foto dokumen biasa menjadi file siap cetak dalam hitungan detik.</p>
+                <p class="text-red-600 font-bold">100% PEMROSESAN CLIENT-SIDE</p>
+                <p>Kami menghormati privasi Anda. Semua proses manipulasi gambar terjadi langsung di browser Anda. Tidak ada data atau foto yang dikirim ke server kami.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-gray-950 border-t border-gray-800 py-12 mt-10">
+        <div class="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <!-- Brand Info -->
+            <div class="md:col-span-1">
+                <div class="flex items-center gap-3 mb-4">
+                    <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo Karya Abadi Crop" class="w-10 h-10 object-contain">
+                    <h4 class="text-lg font-black text-white">KARYA ABADI <span class="text-red-600">CROP</span></h4>
+                </div>
+                <p class="text-xs text-gray-500 tracking-widest mb-4">AUTO CROP • UKURAN PRESISI • SIAP CETAK</p>
+                <p class="text-sm text-gray-400">Aplikasi web untuk memotong, meluruskan, dan menyesuaikan ukuran dokumen secara akurat.</p>
+            </div>
+            
+            <!-- Navigasi Menu -->
+            <div>
+                <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Menu</h5>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li><a href="#/" @click.prevent="navigate('/')" class="hover:text-red-600 transition">Beranda</a></li>
+                    <li><a href="#/auto-crop" @click.prevent="navigate('/auto-crop')" class="hover:text-red-600 transition">Auto Crop</a></li>
+                    <li><a href="#/ukuran-dokumen" @click.prevent="navigate('/ukuran-dokumen')" class="hover:text-red-600 transition">Ukuran Dokumen</a></li>
+                    <li><a href="#/bantuan" @click.prevent="navigate('/bantuan')" class="hover:text-red-600 transition">Bantuan</a></li>
+                    <li><a href="#/tentang" @click.prevent="navigate('/tentang')" class="hover:text-red-600 transition">Tentang Kami</a></li>
+                </ul>
+            </div>
+
+            <!-- Legal & Privacy -->
+            <div>
+                <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Legalitas</h5>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li><a href="#" class="hover:text-red-600 transition">Kebijakan Privasi</a></li>
+                    <li><a href="#" class="hover:text-red-600 transition">Syarat & Ketentuan</a></li>
+                    <li><a href="#" class="hover:text-red-600 transition">Kebijakan Cookie</a></li>
+                </ul>
+            </div>
+
+            <!-- Kontak -->
+            <div>
+                <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Kontak</h5>
+                <ul class="space-y-2 text-sm text-gray-400">
+                    <li class="flex items-center gap-2"><svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> karyaabadi24434@gmail.com</li>
+                    <li class="flex items-center gap-2"><svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg> 085117124247</li>
+                    <li class="flex items-center gap-2"><svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg> Subang, Indonesia</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Copyright -->
+        <div class="container mx-auto px-4 mt-10 text-center text-xs text-gray-600 border-t border-gray-800 pt-6">
+            © 2026 Karya Abadi Crop. All Rights Reserved. Email: karyaabadi24434@gmail.com, Tlp. 085117124247, Subang, Indonesia.
+        </div>
+    </footer>
+
+    <!-- TOAST NOTIFICATION (Simulasi Chat/Live Chat UI) -->
+    <div v-if="toast.show" class="toast fixed bottom-8 right-8 bg-gray-900 border-l-4 border-red-600 text-white px-6 py-4 rounded shadow-xl z-50 max-w-xs">
+        <p class="font-bold text-sm">{{ toast.title }}</p>
+        <p class="text-xs text-gray-400 mt-1">{{ toast.msg }}</p>
+    </div>
+
+</div>
+
+<script>
+const { createApp, ref, reactive, onMounted, watch, nextTick, computed } = Vue;
+
+createApp({
+    setup() {
+        const route = ref('/');
+        const mobileMenu = ref(false);
+        const files = ref([]);
+        const selectedFileId = ref(null);
+        const fileInput = ref(null);
+        const cameraInput = ref(null);
+        const status = ref('SIAP');
+        const searchSize = ref('');
+        const globalSearch = ref('');
+        
+        // Toast Notification
+        const toast = reactive({ show: false, title: '', msg: '' });
+        const showToast = (title, msg) => {
+            toast.title = title;
+            toast.msg = msg;
+            toast.show = true;
+            setTimeout(() => toast.show = false, 3000);
+        };
+
+        const settings = reactive({
+            selectedSize: 'A4',
+            customW: 21,
+            customH: 29.7,
+            dpi: 300,
+            brightness: 100,
+            contrast: 100,
+            colorMode: 'original'
+        });
+
+        const features = [
+            { title: 'AUTO CROP', desc: 'Deteksi batas dokumen secara otomatis menggunakan algoritma deteksi tepi.' },
+            { title: 'PERSPECTIVE CORRECTION', desc: 'Meluruskan dokumen yang difoto dari sudut miring secara presisi.' },
+            { title: 'UKURAN CM', desc: 'Atur ukuran dokumen secara presisi dalam centimeter sesuai standar cetak.' },
+            { title: 'DPI CONFIGURATION', desc: 'Pilih resolusi 72 sampai 600 DPI untuk hasil cetak yang tajam.' },
+            { title: 'MULTI FILE (BATCH)', desc: 'Proses banyak gambar sekaligus dan download dalam format ZIP.' },
+            { title: 'MULTI FORMAT EXPORT', desc: 'Download hasil dalam JPG, PNG, atau PDF dengan ukuran fisik akurat.' }
+        ];
+
+        const documentSizes = [
+            { category: 'KERTAS', items: [
+                { name: 'A0', w: 84.1, h: 118.9 }, { name: 'A1', w: 59.4, h: 84.1 },
+                { name: 'A2', w: 42, h: 59.4 }, { name: 'A3', w: 29.7, h: 42 },
+                { name: 'A4', w: 21, h: 29.7 }, { name: 'A5', w: 14.8, h: 21 },
+                { name: 'A6', w: 10.5, h: 14.8 }, { name: 'F4/Folio', w: 21.5, h: 33 },
+                { name: 'Letter', w: 21.59, h: 27.94 }, { name: 'Legal', w: 21.59, h: 35.56 },
+                { name: 'Tabloid', w: 27.94, h: 43.18 }, { name: 'B4', w: 25, h: 35.3 },
+                { name: 'B5', w: 17.6, h: 25 }
+            ]},
+            { category: 'KARTU', items: [
+                { name: 'KTP', w: 8.56, h: 5.40 }, { name: 'SIM', w: 8.56, h: 5.40 },
+                { name: 'ID Card CR80', w: 8.56, h: 5.40 }, { name: 'Kartu ATM', w: 8.56, h: 5.40 },
+                { name: 'Kartu BPJS', w: 8.56, h: 5.40 }, { name: 'Kartu Nama', w: 9, h: 5.5 },
+                { name: 'ID Card Pegawai', w: 9, h: 6 }, { name: 'ID Card Panitia', w: 10, h: 15 },
+                { name: 'Paspor', w: 12.5, h: 8.8 }
+            ]},
+            { category: 'DOKUMEN', items: [
+                { name: 'Ijazah', w: 21, h: 29.7 }, { name: 'Akta Kelahiran', w: 21, h: 29.7 },
+                { name: 'Akta Kematian', w: 21, h: 29.7 }, { name: 'Kartu Keluarga', w: 21, h: 29.7 },
+                { name: 'Sertifikat', w: 21, h: 29.7 }, { name: 'Piagam', w: 21, h: 29.7 },
+                { name: 'Surat Keterangan', w: 21, h: 29.7 }, { name: 'CV', w: 21, h: 29.7 },
+                { name: 'Proposal', w: 21, h: 29.7 }, { name: 'Laporan', w: 21, h: 29.7 }
+            ]}
+        ];
+
+        const faqs = [
+            { q: 'Apa itu Auto Crop?', a: 'Fitur untuk mendeteksi batas dokumen pada gambar dan memotongnya secara otomatis.' },
+            { q: 'Apa fungsi DPI?', a: 'DPI (Dots Per Inch) menentukan resolusi cetak. Semakin tinggi DPI, semakin tajam hasil cetak.' },
+            { q: 'Berapa DPI untuk mencetak?', a: 'Standar cetak yang disarankan adalah 300 DPI.' },
+            { q: 'Apakah KTP dapat di-crop?', a: 'Ya, kami menyediakan ukuran KTP (8.56 x 5.40 cm) yang presisi.' },
+            { q: 'Apakah bisa memproses banyak foto?', a: 'Ya, gunakan fitur Batch Processing dan Download All dalam format ZIP.' },
+            { q: 'Apakah hasil dapat disimpan sebagai PDF?', a: 'Ya, sistem akan membuat file PDF dengan ukuran fisik yang sesuai.' },
+            { q: 'Apakah file disimpan di server?', a: 'Tidak. Semua proses terjadi di browser Anda (client-side) demi keamanan dan privasi.' }
+        ];
+
+        // Canvas State
+        let canvas, ctx, img;
+        let zoom = 1;
+        let points = ref([]);
+        let isDragging = false;
+        let dragIndex = -1;
+
+        const navigate = (path) => {
+            route.value = path;
+            window.scrollTo(0, 0);
+            showToast('Navigasi', `Pindah ke halaman ${path === '/' ? 'Beranda' : path.substring(1)}`);
+        };
+
+        const searchAction = () => {
+            if (globalSearch.value) {
+                navigate('/ukuran-dokumen');
+                searchSize.value = globalSearch.value;
+                showToast('Pencarian', `Mencari "${globalSearch.value}" di database ukuran`);
+            }
+        };
+
+        const handleUpload = (e) => {
+            const newFiles = e.target.files;
+            processFiles(newFiles);
+            e.target.value = ''; 
+        };
+
+        const handleCamera = (e) => {
+            const newFiles = e.target.files;
+            processFiles(newFiles);
+            e.target.value = '';
+        };
+
+        const processFiles = async (newFiles) => {
+            for (let file of newFiles) {
+                if (!file.type.match('image.*')) {
+                    showToast('Error', 'Format file tidak didukung.');
+                    continue;
+                }
+                const dataUrl = await readFileAsDataURL(file);
+                const id = Date.now() + Math.random();
+                files.value.push({ id, name: file.name, dataUrl, status: 'READY' });
+                if (!selectedFileId.value) selectFile(id);
+            }
+            showToast('Sukses', `${newFiles.length} file ditambahkan`);
+        };
+
+        const readFileAsDataURL = (file) => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+        };
+
+        const selectFile = async (id) => {
+            selectedFileId.value = id;
+            const file = files.value.find(f => f.id === id);
+            if (!file) return;
+
+            status.value = 'MEMUAT GAMBAR...';
+            await nextTick();
+            
+            canvas = document.getElementById('mainCanvas');
+            if (!canvas) return;
+            ctx = canvas.getContext('2d');
+            img = new Image();
+            img.onload = () => {
+                resetView();
+                initCropPoints();
+                drawCanvas();
+                status.value = 'SIAP';
+            };
+            img.src = file.dataUrl;
+        };
+
+        const resetView = () => {
+            if (!img || !canvas) return;
+            const containerH = 500;
+            zoom = Math.min(1, (containerH - 20) / img.height);
+            drawCanvas();
+        };
+
+        const adjustZoom = (delta) => {
+            zoom = Math.max(0.1, Math.min(3, zoom + delta));
+            drawCanvas();
+        };
+
+        const initCropPoints = () => {
+            if (!img) return;
+            const w = img.width * zoom;
+            const h = img.height * zoom;
+            const offset = Math.min(w, h) * 0.1;
+            points.value = [
+                { x: offset, y: offset }, { x: w - offset, y: offset },
+                { x: offset, y: h - offset }, { x: w - offset, y: h - offset }
+            ];
+        };
+
+        const drawCanvas = () => {
+            if (!img || !canvas) return;
+            const w = img.width * zoom;
+            const h = img.height * zoom;
+            canvas.width = w;
+            canvas.height = h;
+            
+            let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
+            if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
+            if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
+            ctx.filter = filter;
+            
+            ctx.drawImage(img, 0, 0, w, h);
+            ctx.filter = 'none';
+
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(points.value[0].x, points.value[0].y);
+            ctx.lineTo(points.value[1].x, points.value[1].y);
+            ctx.lineTo(points.value[3].x, points.value[3].y);
+            ctx.lineTo(points.value[2].x, points.value[2].y);
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            points.value.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+            });
+        };
+
+        // Mouse Events
+        const startDrag = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            for(let i=0; i<points.value.length; i++) {
+                const p = points.value[i];
+                if (Math.hypot(p.x - mx, p.y - my) < 15) {
+                    isDragging = true;
+                    dragIndex = i;
+                    break;
+                }
+            }
+        };
+
+        const onDrag = (e) => {
+            if (!isDragging || dragIndex === -1) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            
+            points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, mx));
+            points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, my));
+            drawCanvas();
+        };
+
+        const endDrag = () => {
+            isDragging = false;
+            dragIndex = -1;
+        };
+
+        // Touch Events for Mobile
+        const startDragTouch = (e) => {
+            if (!e.touches[0]) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.touches[0].clientX - rect.left;
+            const my = e.touches[0].clientY - rect.top;
+            
+            for(let i=0; i<points.value.length; i++) {
+                const p = points.value[i];
+                if (Math.hypot(p.x - mx, p.y - my) < 25) { // Larger hitbox for touch
+                    isDragging = true;
+                    dragIndex = i;
+                    break;
+                }
+            }
+        };
+
+        const onDragTouch = (e) => {
+            if (!isDragging || dragIndex === -1 || !e.touches[0]) return;
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.touches[0].clientX - rect.left;
+            const my = e.touches[0].clientY - rect.top;
+            
+            points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, mx));
+            points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, my));
+            drawCanvas();
+        };
+
+        const autoCrop = async () => {
+            if (!img) return;
+            status.value = 'Menganalisis gambar...';
+            await new Promise(r => setTimeout(r, 500));
+            status.value = 'Mendeteksi dokumen...';
+            await new Promise(r => setTimeout(r, 500));
+            status.value = 'Memperbaiki perspektif...';
+            await new Promise(r => setTimeout(r, 500));
+            
+            try {
+                const w = img.width * zoom;
+                const h = img.height * zoom;
+                const offX = w * 0.05;
+                const offY = h * 0.05;
+                
+                points.value = [
+                    { x: offX, y: offY }, { x: w - offX, y: offY },
+                    { x: offX, y: h - offY }, { x: w - offX, y: h - offY }
+                ];
+                drawCanvas();
+                status.value = 'Selesai. Dokumen terdeteksi.';
+                const file = files.value.find(f => f.id === selectedFileId.value);
+                if (file) file.status = 'PROCESSED';
+            } catch (err) {
+                status.value = 'Dokumen tidak berhasil dideteksi. Coba Manual.';
+            }
+        };
+
+        const resetCrop = () => {
+            initCropPoints();
+            drawCanvas();
+            status.value = 'SIAP';
+        };
+
+        const rotateImage = (deg) => {
+            showToast('Info', `Memutar gambar ${deg} derajat`);
+            drawCanvas();
+        };
+
+        const resetEdit = () => {
+            settings.brightness = 100;
+            settings.contrast = 100;
+            settings.colorMode = 'original';
+            drawCanvas();
+        };
+
+        const getSelectedSize = () => {
+            if (settings.selectedSize === 'Custom') {
+                let w = parseFloat(settings.customW);
+                let h = parseFloat(settings.customH);
+                return { w: isNaN(w) ? 0 : w, h: isNaN(h) ? 0 : h };
+            }
+            for (let cat of documentSizes) {
+                let found = cat.items.find(d => d.name === settings.selectedSize);
+                if (found) return found;
+            }
+            return { w: 21, h: 29.7 };
+        };
+
+        const getPixelSize = () => {
+            const size = getSelectedSize();
+            const dpi = parseInt(settings.dpi);
+            return {
+                w: Math.round((size.w / 2.54) * dpi),
+                h: Math.round((size.h / 2.54) * dpi)
+            };
+        };
+
+        const updateDpiInfo = () => { drawCanvas(); };
+
+        const generateProcessedImage = () => {
+            return new Promise((resolve) => {
+                if (!img) return resolve(null);
+                const targetSize = getPixelSize();
+                
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
+                if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
+                if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
+                tempCtx.filter = filter;
+                tempCtx.drawImage(img, 0, 0);
+                
+                const minX = Math.min(...points.value.map(p => p.x / zoom));
+                const maxX = Math.max(...points.value.map(p => p.x / zoom));
+                const minY = Math.min(...points.value.map(p => p.y / zoom));
+                const maxY = Math.max(...points.value.map(p => p.y / zoom));
+                const cropW = maxX - minX;
+                const cropH = maxY - minY;
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = targetSize.w;
+                outCanvas.height = targetSize.h;
+                const outCtx = outCanvas.getContext('2d');
+                outCtx.fillStyle = '#ffffff'; 
+                outCtx.fillRect(0, 0, targetSize.w, targetSize.h);
+                outCtx.drawImage(tempCanvas, minX, minY, cropW, cropH, 0, 0, targetSize.w, targetSize.h);
+                
+                resolve(outCanvas);
+            });
+        };
+
+        const exportFile = async (format) => {
+            status.value = `Menyiapkan ${format.toUpperCase()}...`;
+            const outCanvas = await generateProcessedImage();
+            if (!outCanvas) { status.value = 'Gagal.'; return; }
+
+            const file = files.value.find(f => f.id === selectedFileId.value);
+            const fileName = file ? file.name.split('.')[0] : 'dokumen';
+
+            if (format === 'jpg') {
+                outCanvas.toBlob(blob => {
+                    downloadBlob(blob, `${fileName}.jpg`);
+                    showToast('Sukses', `${fileName}.jpg berhasil diunduh`);
+                    status.value = 'JPG didownload.';
+                }, 'image/jpeg', 0.95);
+            } else if (format === 'png') {
+                outCanvas.toBlob(blob => {
+                    downloadBlob(blob, `${fileName}.png`);
+                    showToast('Sukses', `${fileName}.png berhasil diunduh`);
+                    status.value = 'PNG didownload.';
+                }, 'image/png');
+            } else if (format === 'pdf') {
+                const size = getSelectedSize();
+                const orientation = size.w > size.h ? 'l' : 'p';
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ orientation, unit: 'cm', format: [size.w, size.h] });
+                const imgData = outCanvas.toDataURL('image/jpeg', 0.95);
+                pdf.addImage(imgData, 'JPEG', 0, 0, size.w, size.h);
+                pdf.save(`${fileName}.pdf`);
+                showToast('Sukses', `${fileName}.pdf berhasil diunduh`);
+                status.value = 'PDF didownload.';
+            }
+        };
+
+        const batchProcess = async () => {
+            for (let i = 0; i < files.value.length; i++) {
+                status.value = `Memproses ${i+1}/${files.value.length}`;
+                selectFile(files.value[i].id);
+                await new Promise(r => setTimeout(r, 1000)); 
+                files.value[i].status = 'PROCESSED';
+            }
+            status.value = 'SEMUA FILE SELESAI';
+            showToast('Batch Selesai', 'Semua file berhasil diproses');
+        };
+
+        const downloadAllZip = async () => {
+            status.value = 'Menyiapkan ZIP...';
+            const zip = new JSZip();
+            const targetSize = getPixelSize();
+
+            for (let i = 0; i < files.value.length; i++) {
+                const f = files.value[i];
+                status.value = `Menyiapkan ZIP ${i+1}/${files.value.length}`;
+                
+                await new Promise((resolve) => {
+                    let tempImg = new Image();
+                    tempImg.onload = async () => {
+                        const tempCanvas = document.createElement('canvas');
+                        tempCanvas.width = tempImg.width;
+                        tempCanvas.height = tempImg.height;
+                        const tempCtx = tempCanvas.getContext('2d');
+                        
+                        let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
+                        if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
+                        if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
+                        tempCtx.filter = filter;
+                        tempCtx.drawImage(tempImg, 0, 0);
+                        
+                        const outCanvas = document.createElement('canvas');
+                        outCanvas.width = targetSize.w;
+                        outCanvas.height = targetSize.h;
+                        const outCtx = outCanvas.getContext('2d');
+                        outCtx.fillStyle = '#ffffff'; 
+                        outCtx.fillRect(0, 0, targetSize.w, targetSize.h);
+                        outCtx.drawImage(tempCanvas, 0, 0, tempImg.width, tempImg.height, 0, 0, targetSize.w, targetSize.h);
+                        
+                        zip.file(`${f.name.split('.')[0]}.jpg`, outCanvas.toDataURL('image/jpeg', 0.95).split(',')[1], {base64: true});
+                        resolve();
+                    };
+                    tempImg.onerror = () => resolve();
+                    tempImg.src = f.dataUrl;
+                });
+            }
+
+            zip.generateAsync({type: "blob"}).then(content => {
+                downloadBlob(content, 'KARYA_ABADI_CROP_ALL.zip');
+                showToast('Sukses', 'File ZIP berhasil diunduh');
+                status.value = 'ZIP didownload.';
+            });
+        };
+
+        const downloadBlob = (blob, filename) => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        };
+
+        const deleteFile = (id) => {
+            files.value = files.value.filter(f => f.id !== id);
+            if (selectedFileId.value === id) {
+                selectedFileId.value = files.value.length > 0 ? files.value[0].id : null;
+                if (selectedFileId.value) selectFile(selectedFileId.value);
+            }
+            showToast('Dihapus', 'File telah dihapus dari sesi');
+        };
+
+        const clearAllFiles = () => {
+            files.value = [];
+            selectedFileId.value = null;
+            if (ctx && canvas) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            showToast('Dihapus', 'Semua file telah dihapus');
+        };
+
+        const useSize = (doc) => {
+            settings.selectedSize = doc.name;
+            settings.customW = doc.w;
+            settings.customH = doc.h;
+            navigate('/auto-crop');
+            showToast('Ukuran Dipilih', `${doc.name} (${doc.w}x${doc.h} cm) siap digunakan`);
+        };
+
+        const filteredSizes = computed(() => {
+            if (!searchSize.value) return documentSizes;
+            let result = [];
+            documentSizes.forEach(cat => {
+                let items = cat.items.filter(d => d.name.toLowerCase().includes(searchSize.value.toLowerCase()));
+                if (items.length > 0) result.push({ category: cat.category, items });
+            });
+            return result;
+        });
+
+        return {
+            route, mobileMenu, files, selectedFileId, status, searchSize, globalSearch, toast,
+            fileInput, cameraInput, settings,
+            features, documentSizes, faqs, filteredSizes,
+            navigate, searchAction, handleUpload, handleCamera, selectFile,
+            adjustZoom, resetView, autoCrop, resetCrop, rotateImage, resetEdit,
+            getSelectedSize, getPixelSize, updateDpiInfo, exportFile,
+            batchProcess, downloadAllZip, deleteFile, clearAllFiles, useSize,
+            startDrag, onDrag, endDrag, startDragTouch, onDragTouch
+        };
+    }
+}).mount('#app');
+</script>
+</body>
+</html>

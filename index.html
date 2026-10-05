@@ -22,9 +22,12 @@
         .nav-link:hover::after, .nav-link.active::after { width: 100%; }
         .btn-primary { background-color: #dc2626; transition: background-color 0.3s; }
         .btn-primary:hover { background-color: #b91c1c; }
-        .crop-wrapper { position: relative; height: 600px; overflow: auto; background: #000; border-radius: 8px; cursor: grab; }
-        .crop-wrapper:active { cursor: grabbing; }
-        .crop-container { position: relative; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; min-height: 100%; min-width: 100%; }
+        
+        /* CSS untuk Preview Area */
+        .crop-wrapper { position: relative; height: 600px; overflow: hidden; background: #000; border-radius: 8px; cursor: grab; touch-action: none; }
+        .crop-wrapper.panning { cursor: grabbing; }
+        .crop-container { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+        
         .toast { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
@@ -181,28 +184,19 @@
 
                     <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded flex-wrap gap-2">
-                            <button @click="adjustZoom(-0.5)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
-                            <button @click="adjustZoom(0.5)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
-                            <button @click="resetView" class="p-2 hover:bg-gray-800 rounded text-xs">Fit Screen</button>
-                            <div class="w-px h-6 bg-gray-700 mx-2"></div>
                             <button @click="rotateImage(-90)" class="p-2 hover:bg-gray-800 rounded text-sm">↺ Kiri</button>
                             <button @click="rotateImage(90)" class="p-2 hover:bg-gray-800 rounded text-sm">Kanan ↻</button>
-                            <span class="p-2 text-xs text-gray-400">Zoom: {{ Math.round(zoom * 100) }}% (Scroll bebas)</span>
+                            <button @click="fitToScreen" class="p-2 hover:bg-gray-800 rounded text-xs">Reset View</button>
+                            <span class="p-2 text-xs text-gray-400 ml-auto">Zoom: {{ Math.round(zoom * 100) }}%</span>
                         </div>
                         
-                        <!-- Tambah @wheel.prevent untuk scroll mouse zoom -->
-                        <div class="crop-wrapper" @wheel.prevent="handleWheelZoom">
-                            <div class="crop-container">
-                                <canvas id="mainCanvas" 
-                                    @mousedown="startDrag" 
-                                    @mousemove="onDrag" 
-                                    @mouseup="endDrag" 
-                                    @mouseleave="endDrag"
-                                    @touchstart.prevent="startDragTouch"
-                                    @touchmove.prevent="onDragTouch"
-                                    @touchend.prevent="endDrag"
-                                    class="max-w-none">
-                                </canvas>
+                        <!-- Area Canvas Tanpa Scrollbar, Menggunakan Transform Translate untuk Geser Bebas -->
+                        <div class="crop-wrapper" :class="{'panning': isPanning}" @wheel.prevent="handleWheelZoom" @mousedown="startDragOrPan" @mousemove="onDragOrPan" @mouseup="endDragOrPan" @mouseleave="endDragOrPan" @touchstart.prevent="handleTouchStart" @touchmove.prevent="handleTouchMove" @touchend.prevent="endDragOrPan" ref="cropWrapper">
+                            <div class="crop-container" :style="{ transform: `translate(${panX}px, ${panY}px)` }">
+                                <canvas id="mainCanvas" class="max-w-none"></canvas>
+                            </div>
+                            <div class="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-1 rounded pointer-events-none">
+                                Tahan klik untuk geser | Scroll untuk zoom
                             </div>
                         </div>
 
@@ -245,7 +239,6 @@
                             </div>
                         </div>
 
-                        <!-- Resolusi diubah menjadi statis 100 Pixels/cm -->
                         <div class="mb-4">
                             <label class="block text-xs font-bold mb-1 text-gray-400">RESOLUSI</label>
                             <div class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-gray-300 cursor-not-allowed">100 PIXELS/CM (Tetap)</div>
@@ -317,10 +310,10 @@
                 <ol class="list-decimal list-inside space-y-3 text-gray-300">
                     <li>Upload foto dokumen atau ambil foto langsung.</li>
                     <li>Klik tombol AUTO DETECT & CROP untuk memotong otomatis.</li>
-                    <li>Sesuaikan titik crop secara manual jika diperlukan. <strong>Gunakan roda mouse (scroll) untuk zoom bebas.</strong></li>
+                    <li>Sesuaikan titik crop secara manual. <strong>Tahan klik kiri pada area gelap untuk menggeser (pan) gambar kemana saja.</strong></li>
+                    <li><strong>Scroll roda mouse</strong> untuk memperbesar/memperkecil (zoom) mengikuti kursor. Tidak ada batas navigasi scrollbar.</li>
                     <li>Pilih ukuran dokumen (misal: KTP, A4) dan orientasi (Portrait/Landscape).</li>
-                    <li>Resolusi otomatis diatur ke 100 Pixels/cm untuk kualitas cetak standar.</li>
-                    <li>Pilih format export (JPG, PNG, atau PDF).</li>
+                    <li>Resolusi otomatis diatur ke 100 Pixels/cm untuk kualitas cetak standar (JPG, PNG, PDF).</li>
                     <li>Klik tombol Download untuk menyimpan sesuai ukuran fisik.</li>
                 </ol>
             </div>
@@ -425,6 +418,7 @@ createApp({
         const selectedFileId = ref(null);
         const fileInput = ref(null);
         const cameraInput = ref(null);
+        const cropWrapper = ref(null);
         const status = ref('SIAP');
         const searchSize = ref('');
         const globalSearch = ref('');
@@ -451,8 +445,8 @@ createApp({
             { title: 'AUTO CROP', desc: 'Deteksi batas dokumen secara otomatis menggunakan algoritma deteksi tepi.' },
             { title: 'PERSPECTIVE CORRECTION', desc: 'Meluruskan dokumen yang difoto dari sudut miring secara presisi.' },
             { title: 'UKURAN CM', desc: 'Atur ukuran dokumen secara presisi dalam centimeter sesuai standar cetak.' },
-            { title: 'RESOLUSI 100 PX/CM', desc: 'Resolusi otomatis 100 pixels per centimeter untuk hasil yang tajam.' },
-            { title: 'MULTI FILE (BATCH)', desc: 'Proses banyak gambar sekaligus dan download dalam format ZIP.' },
+            { title: 'RESOLUSI 100 PX/CM', desc: 'Resolusi mutlak 100 pixels per centimeter untuk JPG, PNG, dan PDF.' },
+            { title: 'ZOOM BEBAS', desc: 'Zoom bebas tak terbatas tanpa scrollbar. Geser gambar dengan tahan klik kiri.' },
             { title: 'MULTI FORMAT EXPORT', desc: 'Download hasil dalam JPG, PNG, atau PDF dengan ukuran fisik akurat.' }
         ];
 
@@ -485,20 +479,32 @@ createApp({
         const faqs = [
             { q: 'Apa itu Auto Crop?', a: 'Fitur untuk mendeteksi batas dokumen pada gambar dan memotongnya secara otomatis.' },
             { q: 'Apa fungsi 100 Pixels/cm?', a: 'Resolusi 100 pixels per centimeter menentukan ketajaman cetak. 1 cm = 100 px.' },
-            { q: 'Berapa resolusi KTP?', a: 'KTP berukuran 8.56x5.40 cm, sehingga resolusi hasilnya adalah 856x540 px.' },
-            { q: 'Apakah KTP dapat di-crop?', a: 'Ya, kami menyediakan ukuran KTP yang presisi.' },
+            { q: 'Bagaimana cara zoom bebas?', a: 'Arahkan kursor ke area canvas, lalu putar roda mouse (scroll) ke atas untuk memperbesar, dan ke bawah untuk memperkecil.' },
+            { q: 'Bagaimana cara menggeser gambar?', a: 'Tahan klik kiri pada area gelap di sekitar gambar (bukan pada titik sudut merah), lalu geser mouse. Tidak ada batas scrollbar.' },
             { q: 'Apakah bisa memproses banyak foto?', a: 'Ya, gunakan fitur Batch Processing dan Download All dalam format ZIP.' },
-            { q: 'Apakah hasil dapat disimpan sebagai PDF?', a: 'Ya, sistem akan membuat file PDF dengan ukuran fisik yang sesuai.' },
+            { q: 'Apakah hasil dapat disimpan sebagai PDF?', a: 'Ya, sistem akan membuat file PDF dengan ukuran fisik yang sesuai dan resolusi 100 Px/cm.' },
             { q: 'Apakah file disimpan di server?', a: 'Tidak. Semua proses terjadi di browser Anda (client-side) demi keamanan dan privasi.' }
         ];
 
         let canvas, ctx, img;
-        const zoom = ref(1); // Menggunakan ref agar UI persentase zoom reaktif
+        const zoom = ref(1);
+        const panX = ref(0);
+        const panY = ref(0);
         let points = ref([]);
         let isDragging = false;
         let dragIndex = -1;
+        
+        // State untuk Geser (Pan)
+        const isPanning = ref(false);
+        let panStartX = 0, panStartY = 0;
+        let panStartOffsetX = 0, panStartOffsetY = 0;
 
-        // Vue Deep Watcher untuk update real-time pada slider/option edit gambar
+        // State untuk Pinch Touch
+        let initialPinchDistance = 0;
+        let initialPinchZoom = 1;
+        let initialPinchMidX = 0, initialPinchMidY = 0;
+        let initialPinchImgX = 0, initialPinchImgY = 0;
+
         watch(() => settings, () => {
             drawCanvas();
         }, { deep: true });
@@ -564,7 +570,7 @@ createApp({
             ctx = canvas.getContext('2d');
             img = new Image();
             img.onload = () => {
-                resetView();
+                fitToScreen();
                 initCropPoints();
                 drawCanvas();
                 status.value = 'SIAP';
@@ -572,23 +578,48 @@ createApp({
             img.src = file.dataUrl;
         };
 
-        const resetView = () => {
-            if (!img || !canvas) return;
-            const containerW = canvas.parentElement.clientWidth;
-            const containerH = canvas.parentElement.clientHeight;
-            zoom.value = Math.min(containerW / img.width, containerH / img.height) * 0.9;
+        const fitToScreen = () => {
+            if (!img || !cropWrapper.value) return;
+            const wrapperW = cropWrapper.value.clientWidth;
+            const wrapperH = cropWrapper.value.clientHeight;
+            zoom.value = Math.min(wrapperW / img.width, wrapperH / img.height) * 0.9;
+            centerImage();
             drawCanvas();
         };
 
-        const adjustZoom = (delta) => {
-            zoom.value = Math.max(0.05, Math.min(50, zoom.value + delta)); // Zoom bebas dari 5% hingga 5000%
-            drawCanvas();
+        const centerImage = () => {
+            if (!img || !cropWrapper.value) return;
+            const wrapperW = cropWrapper.value.clientWidth;
+            const wrapperH = cropWrapper.value.clientHeight;
+            const canvasW = img.width * zoom.value;
+            const canvasH = img.height * zoom.value;
+            panX.value = (wrapperW - canvasW) / 2;
+            panY.value = (wrapperH - canvasH) / 2;
         };
 
-        // Fungsi Zoom menggunakan Scroll Mouse
         const handleWheelZoom = (e) => {
-            const delta = e.deltaY > 0 ? -0.2 : 0.2; // Scrolling down zooms out, scrolling up zooms in
-            adjustZoom(delta);
+            if (!img || !cropWrapper.value) return;
+            const rect = cropWrapper.value.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const oldZoom = zoom.value;
+            const delta = e.deltaY > 0 ? -0.2 : 0.2;
+            let newZoom = Math.max(0.05, Math.min(50, oldZoom + delta));
+            
+            const imgX = (mouseX - panX.value) / oldZoom;
+            const imgY = (mouseY - panY.value) / oldZoom;
+            
+            zoom.value = newZoom;
+            
+            // Scale crop points to match new zoom
+            const ratio = newZoom / oldZoom;
+            points.value = points.value.map(p => ({ x: p.x * ratio, y: p.y * ratio }));
+            
+            panX.value = mouseX - (imgX * newZoom);
+            panY.value = mouseY - (imgY * newZoom);
+            
+            drawCanvas();
         };
 
         const initCropPoints = () => {
@@ -609,7 +640,6 @@ createApp({
             canvas.width = w;
             canvas.height = h;
             
-            // Apply real-time filters
             let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
             if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
             if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
@@ -642,62 +672,146 @@ createApp({
             });
         };
 
-        const startDrag = (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+        // Mouse Events
+        const startDragOrPan = (e) => {
+            if (!img || !cropWrapper.value) return;
+            const wrapperRect = cropWrapper.value.getBoundingClientRect();
+            const mx = e.clientX - wrapperRect.left;
+            const my = e.clientY - wrapperRect.top;
+            const canvasX = mx - panX.value;
+            const canvasY = my - panY.value;
             
+            let hitCrop = -1;
             for(let i=0; i<points.value.length; i++) {
                 const p = points.value[i];
-                if (Math.hypot(p.x - mx, p.y - my) < 15) {
-                    isDragging = true;
-                    dragIndex = i;
-                    break;
-                }
+                if (Math.hypot(p.x - canvasX, p.y - canvasY) < 15) { hitCrop = i; break; }
+            }
+            
+            if (hitCrop !== -1) {
+                isDragging = true;
+                dragIndex = hitCrop;
+            } else {
+                isPanning.value = true;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                panStartOffsetX = panX.value;
+                panStartOffsetY = panY.value;
             }
         };
 
-        const onDrag = (e) => {
-            if (!isDragging || dragIndex === -1) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.clientX - rect.left;
-            const my = e.clientY - rect.top;
+        const onDragOrPan = (e) => {
+            if (!img || !cropWrapper.value) return;
+            const wrapperRect = cropWrapper.value.getBoundingClientRect();
+            const mx = e.clientX - wrapperRect.left;
+            const my = e.clientY - wrapperRect.top;
             
-            points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, mx));
-            points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, my));
-            drawCanvas();
+            if (isDragging) {
+                const canvasX = mx - panX.value;
+                const canvasY = my - panY.value;
+                points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, canvasX));
+                points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, canvasY));
+                drawCanvas();
+            } else if (isPanning.value) {
+                const dx = e.clientX - panStartX;
+                const dy = e.clientY - panStartY;
+                panX.value = panStartOffsetX + dx;
+                panY.value = panStartOffsetY + dy;
+            }
         };
 
-        const endDrag = () => {
+        const endDragOrPan = () => {
             isDragging = false;
             dragIndex = -1;
+            isPanning.value = false;
         };
 
-        const startDragTouch = (e) => {
-            if (!e.touches[0]) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.touches[0].clientX - rect.left;
-            const my = e.touches[0].clientY - rect.top;
-            
-            for(let i=0; i<points.value.length; i++) {
-                const p = points.value[i];
-                if (Math.hypot(p.x - mx, p.y - my) < 25) {
-                    isDragging = true;
-                    dragIndex = i;
-                    break;
-                }
+        // Touch Events (Mobile)
+        const handleTouchStart = (e) => {
+            if (!img || !cropWrapper.value) return;
+            if (e.touches.length === 2) {
+                isDragging = false;
+                isPanning.value = false;
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                initialPinchZoom = zoom.value;
+                
+                const wrapperRect = cropWrapper.value.getBoundingClientRect();
+                initialPinchMidX = ((t1.clientX + t2.clientX) / 2) - wrapperRect.left;
+                initialPinchMidY = ((t1.clientY + t2.clientY) / 2) - wrapperRect.top;
+                
+                initialPinchImgX = (initialPinchMidX - panX.value) / initialPinchZoom;
+                initialPinchImgY = (initialPinchMidY - panY.value) / initialPinchZoom;
+            } else if (e.touches.length === 1) {
+                startDragOrPanTouch(e);
             }
         };
 
-        const onDragTouch = (e) => {
-            if (!isDragging || dragIndex === -1 || !e.touches[0]) return;
-            const rect = canvas.getBoundingClientRect();
-            const mx = e.touches[0].clientX - rect.left;
-            const my = e.touches[0].clientY - rect.top;
+        const handleTouchMove = (e) => {
+            if (!img || !cropWrapper.value) return;
+            if (e.touches.length === 2) {
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                
+                let newZoom = initialPinchZoom * (dist / initialPinchDistance);
+                newZoom = Math.max(0.05, Math.min(50, newZoom));
+                
+                const ratio = newZoom / zoom.value;
+                points.value = points.value.map(p => ({ x: p.x * ratio, y: p.y * ratio }));
+                
+                zoom.value = newZoom;
+                panX.value = initialPinchMidX - (initialPinchImgX * newZoom);
+                panY.value = initialPinchMidY - (initialPinchImgY * newZoom);
+                
+                drawCanvas();
+            } else if (e.touches.length === 1 && (isDragging || isPanning.value)) {
+                onDragOrPanTouch(e);
+            }
+        };
+
+        const startDragOrPanTouch = (e) => {
+            if (!e.touches[0]) return;
+            const wrapperRect = cropWrapper.value.getBoundingClientRect();
+            const mx = e.touches[0].clientX - wrapperRect.left;
+            const my = e.touches[0].clientY - wrapperRect.top;
+            const canvasX = mx - panX.value;
+            const canvasY = my - panY.value;
             
-            points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, mx));
-            points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, my));
-            drawCanvas();
+            let hitCrop = -1;
+            for(let i=0; i<points.value.length; i++) {
+                const p = points.value[i];
+                if (Math.hypot(p.x - canvasX, p.y - canvasY) < 25) { hitCrop = i; break; }
+            }
+            if (hitCrop !== -1) {
+                isDragging = true; dragIndex = hitCrop;
+            } else {
+                isPanning.value = true;
+                panStartX = e.touches[0].clientX;
+                panStartY = e.touches[0].clientY;
+                panStartOffsetX = panX.value;
+                panStartOffsetY = panY.value;
+            }
+        };
+
+        const onDragOrPanTouch = (e) => {
+            if (!e.touches[0]) return;
+            const wrapperRect = cropWrapper.value.getBoundingClientRect();
+            const mx = e.touches[0].clientX - wrapperRect.left;
+            const my = e.touches[0].clientY - wrapperRect.top;
+            
+            if (isDragging) {
+                const canvasX = mx - panX.value;
+                const canvasY = my - panY.value;
+                points.value[dragIndex].x = Math.max(0, Math.min(canvas.width, canvasX));
+                points.value[dragIndex].y = Math.max(0, Math.min(canvas.height, canvasY));
+                drawCanvas();
+            } else if (isPanning.value) {
+                const dx = e.touches[0].clientX - panStartX;
+                const dy = e.touches[0].clientY - panStartY;
+                panX.value = panStartOffsetX + dx;
+                panY.value = panStartOffsetY + dy;
+            }
         };
 
         const autoCrop = async () => {
@@ -807,7 +921,6 @@ createApp({
             }
         };
 
-        // Rumus resolusi 100 pixels per centimeter
         const getPixelSize = () => {
             const size = getSelectedSize();
             const res = 100; 
@@ -986,14 +1099,14 @@ createApp({
         });
 
         return {
-            route, mobileMenu, files, selectedFileId, status, searchSize, globalSearch, toast, zoom,
-            fileInput, cameraInput, settings,
+            route, mobileMenu, files, selectedFileId, status, searchSize, globalSearch, toast, zoom, isPanning, panX, panY,
+            fileInput, cameraInput, cropWrapper, settings,
             features, documentSizes, faqs, filteredSizes,
             navigate, searchAction, handleUpload, handleCamera, selectFile,
-            adjustZoom, handleWheelZoom, resetView, autoCrop, resetCrop, rotateImage, resetEdit,
+            handleWheelZoom, fitToScreen, autoCrop, resetCrop, rotateImage, resetEdit,
             getSelectedSize, getPixelSize, exportFile,
             batchProcess, downloadAllZip, deleteFile, clearAllFiles, useSize,
-            startDrag, onDrag, endDrag, startDragTouch, onDragTouch
+            startDragOrPan, onDragOrPan, endDragOrPan, handleTouchStart, handleTouchMove
         };
     }
 }).mount('#app');

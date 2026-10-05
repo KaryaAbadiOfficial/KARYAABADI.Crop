@@ -22,7 +22,8 @@
         .nav-link:hover::after, .nav-link.active::after { width: 100%; }
         .btn-primary { background-color: #dc2626; transition: background-color 0.3s; }
         .btn-primary:hover { background-color: #b91c1c; }
-        .crop-container { position: relative; user-select: none; touch-action: none; }
+        .crop-wrapper { position: relative; height: 600px; overflow: auto; background: #000; border-radius: 8px; }
+        .crop-container { position: relative; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; min-height: 100%; min-width: 100%; }
         .toast { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
@@ -192,32 +193,35 @@
 
                     <!-- Canvas Area -->
                     <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
-                        <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded">
-                            <button @click="adjustZoom(0.1)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
-                            <button @click="adjustZoom(-0.1)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
-                            <button @click="resetView" class="p-2 hover:bg-gray-800 rounded text-xs">Fit</button>
+                        <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded flex-wrap gap-2">
+                            <button @click="adjustZoom(-0.2)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
+                            <button @click="adjustZoom(0.2)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
+                            <button @click="resetView" class="p-2 hover:bg-gray-800 rounded text-xs">Fit Screen</button>
                             <div class="w-px h-6 bg-gray-700 mx-2"></div>
                             <button @click="rotateImage(-90)" class="p-2 hover:bg-gray-800 rounded text-sm">↺ Kiri</button>
                             <button @click="rotateImage(90)" class="p-2 hover:bg-gray-800 rounded text-sm">Kanan ↻</button>
+                            <span class="p-2 text-xs text-gray-400">Zoom: {{ Math.round(zoom * 100) }}%</span>
                         </div>
                         
-                        <div class="crop-container bg-black rounded overflow-hidden flex items-center justify-center" style="height: 500px;">
-                            <canvas id="mainCanvas" 
-                                @mousedown="startDrag" 
-                                @mousemove="onDrag" 
-                                @mouseup="endDrag" 
-                                @mouseleave="endDrag"
-                                @touchstart.prevent="startDragTouch"
-                                @touchmove.prevent="onDragTouch"
-                                @touchend.prevent="endDrag"
-                                class="max-w-full max-h-full">
-                            </canvas>
+                        <div class="crop-wrapper">
+                            <div class="crop-container">
+                                <canvas id="mainCanvas" 
+                                    @mousedown="startDrag" 
+                                    @mousemove="onDrag" 
+                                    @mouseup="endDrag" 
+                                    @mouseleave="endDrag"
+                                    @touchstart.prevent="startDragTouch"
+                                    @touchmove.prevent="onDragTouch"
+                                    @touchend.prevent="endDrag"
+                                    class="max-w-none">
+                                </canvas>
+                            </div>
                         </div>
 
                         <div class="mt-4 flex flex-col space-y-3">
                             <button @click="autoCrop" class="btn-primary text-white font-bold py-3 rounded flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                                AUTO CROP
+                                AUTO DETECT & CROP
                             </button>
                             <p class="text-center text-sm h-5" :class="status.includes('Selesai') || status.includes('SIAP') ? 'text-green-500' : 'text-red-500'">{{ status }}</p>
                             <button @click="resetCrop" class="bg-gray-800 text-white text-sm py-2 rounded hover:bg-gray-700">RESET CROP</button>
@@ -235,6 +239,16 @@
                                 <optgroup v-for="cat in documentSizes" :label="cat.category" :key="cat.category">
                                     <option v-for="doc in cat.items" :key="doc.name" :value="doc.name">{{ doc.name }} — {{ doc.w }} × {{ doc.h }} cm</option>
                                 </optgroup>
+                            </select>
+                        </div>
+
+                        <!-- Orientasi -->
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold mb-1 text-gray-400">ORIENTASI</label>
+                            <select v-model="settings.orientation" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                                <option value="auto">AUTO (Berdasarkan Dokumen)</option>
+                                <option value="portrait">PORTRAIT (Tegak)</option>
+                                <option value="landscape">LANDSCAPE (Tidur)</option>
                             </select>
                         </div>
 
@@ -328,12 +342,12 @@
                 <h3 class="text-xl font-bold text-red-600 mb-4">Cara Menggunakan</h3>
                 <ol class="list-decimal list-inside space-y-3 text-gray-300">
                     <li>Upload foto dokumen atau ambil foto langsung.</li>
-                    <li>Klik tombol AUTO CROP untuk mendeteksi otomatis.</li>
-                    <li>Sesuaikan titik crop secara manual jika diperlukan.</li>
-                    <li>Pilih ukuran dokumen (misal: KTP, A4).</li>
+                    <li>Klik tombol AUTO DETECT & CROP untuk memotong otomatis.</li>
+                    <li>Sesuaikan titik crop secara manual jika diperlukan (Gunakan Zoom untuk presisi).</li>
+                    <li>Pilih ukuran dokumen (misal: KTP, A4) dan orientasi (Portrait/Landscape).</li>
                     <li>Pilih DPI (300 DPI direkomendasikan untuk cetak).</li>
                     <li>Pilih format export (JPG, PNG, atau PDF).</li>
-                    <li>Klik tombol Download untuk menyimpan.</li>
+                    <li>Klik tombol Download untuk menyimpan sesuai ukuran fisik.</li>
                 </ol>
             </div>
             <div class="bg-gray-900 p-6 rounded-lg border border-gray-800">
@@ -446,6 +460,7 @@ createApp({
 
         const settings = reactive({
             selectedSize: 'A4',
+            orientation: 'auto', // auto, portrait, landscape
             customW: 21,
             customH: 29.7,
             dpi: 300,
@@ -577,13 +592,15 @@ createApp({
 
         const resetView = () => {
             if (!img || !canvas) return;
-            const containerH = 500;
-            zoom = Math.min(1, (containerH - 20) / img.height);
+            const containerW = canvas.parentElement.clientWidth;
+            const containerH = canvas.parentElement.clientHeight;
+            // Fit to screen initially
+            zoom = Math.min(containerW / img.width, containerH / img.height) * 0.9;
             drawCanvas();
         };
 
         const adjustZoom = (delta) => {
-            zoom = Math.max(0.1, Math.min(3, zoom + delta));
+            zoom = Math.max(0.1, Math.min(20, zoom + delta));
             drawCanvas();
         };
 
@@ -700,28 +717,67 @@ createApp({
         const autoCrop = async () => {
             if (!img) return;
             status.value = 'Menganalisis gambar...';
-            await new Promise(r => setTimeout(r, 500));
-            status.value = 'Mendeteksi dokumen...';
-            await new Promise(r => setTimeout(r, 500));
-            status.value = 'Memperbaiki perspektif...';
-            await new Promise(r => setTimeout(r, 500));
-            
+            await new Promise(r => setTimeout(r, 100));
+
             try {
-                const w = img.width * zoom;
-                const h = img.height * zoom;
-                const offX = w * 0.05;
-                const offY = h * 0.05;
-                
-                points.value = [
-                    { x: offX, y: offY }, { x: w - offX, y: offY },
-                    { x: offX, y: h - offY }, { x: w - offX, y: h - offY }
-                ];
-                drawCanvas();
-                status.value = 'Selesai. Dokumen terdeteksi.';
-                const file = files.value.find(f => f.id === selectedFileId.value);
-                if (file) file.status = 'PROCESSED';
+                // Draw to offscreen canvas for analysis
+                const offCanvas = document.createElement('canvas');
+                offCanvas.width = img.width;
+                offCanvas.height = img.height;
+                const offCtx = offCanvas.getContext('2d');
+                offCtx.drawImage(img, 0, 0);
+                const imgData = offCtx.getImageData(0, 0, img.width, img.height);
+                const data = imgData.data;
+
+                // Get background color (assuming corners are background)
+                const bgR = data[0], bgG = data[1], bgB = data[2];
+
+                let minX = img.width, maxX = 0, minY = img.height, maxY = 0;
+                const threshold = 40; // Color difference threshold
+                const step = 4; // Sample every 4 pixels for performance
+
+                for (let y = 0; y < img.height; y += step) {
+                    for (let x = 0; x < img.width; x += step) {
+                        const i = (y * img.width + x) * 4;
+                        const r = data[i], g = data[i+1], b = data[i+2];
+                        const diff = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
+                        if (diff > threshold) {
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                }
+
+                if (minX < maxX && minY < maxY) {
+                    // Add a small padding and map to zoom coordinates
+                    const pad = 10;
+                    minX = Math.max(0, minX - pad);
+                    maxX = Math.min(img.width, maxX + pad);
+                    minY = Math.max(0, minY - pad);
+                    maxY = Math.min(img.height, maxY + pad);
+
+                    points.value = [
+                        { x: minX * zoom, y: minY * zoom },
+                        { x: maxX * zoom, y: minY * zoom },
+                        { x: minX * zoom, y: maxY * zoom },
+                        { x: maxX * zoom, y: maxY * zoom }
+                    ];
+                    drawCanvas();
+                    status.value = 'Selesai. Dokumen terdeteksi.';
+                    const file = files.value.find(f => f.id === selectedFileId.value);
+                    if (file) file.status = 'PROCESSED';
+                } else {
+                    status.value = 'Gagal deteksi otomatis. Silakan manual.';
+                    initCropPoints();
+                    drawCanvas();
+                }
             } catch (err) {
-                status.value = 'Dokumen tidak berhasil dideteksi. Coba Manual.';
+                console.error(err);
+                status.value = 'Terjadi kesalahan. Coba Manual.';
+                initCropPoints();
+                drawCanvas();
             }
         };
 
@@ -744,16 +800,30 @@ createApp({
         };
 
         const getSelectedSize = () => {
+            let baseW, baseH;
             if (settings.selectedSize === 'Custom') {
-                let w = parseFloat(settings.customW);
-                let h = parseFloat(settings.customH);
-                return { w: isNaN(w) ? 0 : w, h: isNaN(h) ? 0 : h };
+                baseW = parseFloat(settings.customW) || 0;
+                baseH = parseFloat(settings.customH) || 0;
+            } else {
+                for (let cat of documentSizes) {
+                    let found = cat.items.find(d => d.name === settings.selectedSize);
+                    if (found) {
+                        baseW = found.w;
+                        baseH = found.h;
+                        break;
+                    }
+                }
             }
-            for (let cat of documentSizes) {
-                let found = cat.items.find(d => d.name === settings.selectedSize);
-                if (found) return found;
+            if (!baseW || !baseH) return { w: 21, h: 29.7 }; // fallback
+
+            if (settings.orientation === 'landscape') {
+                return { w: Math.max(baseW, baseH), h: Math.min(baseW, baseH) };
+            } else if (settings.orientation === 'portrait') {
+                return { w: Math.min(baseW, baseH), h: Math.max(baseW, baseH) };
+            } else {
+                // Auto
+                return { w: baseW, h: baseH };
             }
-            return { w: 21, h: 29.7 };
         };
 
         const getPixelSize = () => {
@@ -839,7 +909,8 @@ createApp({
             for (let i = 0; i < files.value.length; i++) {
                 status.value = `Memproses ${i+1}/${files.value.length}`;
                 selectFile(files.value[i].id);
-                await new Promise(r => setTimeout(r, 1000)); 
+                await new Promise(r => setTimeout(r, 500)); 
+                await autoCrop();
                 files.value[i].status = 'PROCESSED';
             }
             status.value = 'SEMUA FILE SELESAI';
@@ -935,7 +1006,7 @@ createApp({
         });
 
         return {
-            route, mobileMenu, files, selectedFileId, status, searchSize, globalSearch, toast,
+            route, mobileMenu, files, selectedFileId, status, searchSize, globalSearch, toast, zoom,
             fileInput, cameraInput, settings,
             features, documentSizes, faqs, filteredSizes,
             navigate, searchAction, handleUpload, handleCamera, selectFile,

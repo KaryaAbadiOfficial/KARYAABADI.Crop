@@ -33,7 +33,6 @@
     <!-- HEADER -->
     <header class="bg-black border-b border-gray-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center gap-4">
-            <!-- Logo & Brand -->
             <div class="flex items-center gap-3 cursor-pointer" @click="navigate('/')">
                 <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo Karya Abadi Crop" class="w-10 h-10 object-contain">
                 <div>
@@ -42,7 +41,6 @@
                 </div>
             </div>
 
-            <!-- Search Bar (Desktop) -->
             <div class="hidden lg:flex flex-1 max-w-md">
                 <div class="relative w-full">
                     <input type="text" v-model="globalSearch" @keyup.enter="searchAction" placeholder="Cari ukuran dokumen (cth: KTP, A4)..." class="w-full bg-gray-900 border border-gray-700 rounded-l py-2 px-4 text-sm focus:outline-none focus:border-red-600">
@@ -52,7 +50,6 @@
                 </div>
             </div>
 
-            <!-- Navigasi -->
             <nav class="hidden md:flex items-center space-x-6">
                 <a href="#/" @click.prevent="navigate('/')" :class="['nav-link text-sm font-semibold', route === '/' ? 'active' : '']">Beranda</a>
                 <a href="#/auto-crop" @click.prevent="navigate('/auto-crop')" :class="['nav-link text-sm font-semibold', route === '/auto-crop' ? 'active' : '']">Auto Crop</a>
@@ -61,13 +58,11 @@
                 <button @click="navigate('/auto-crop')" class="btn-primary text-white text-sm font-bold px-5 py-2 rounded ml-2">MULAI</button>
             </nav>
 
-            <!-- Mobile Menu Toggle -->
             <button @click="mobileMenu = !mobileMenu" class="md:hidden text-white">
                 <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
         </div>
         
-        <!-- Mobile Menu -->
         <div v-if="mobileMenu" class="md:hidden bg-black px-4 pb-4 flex flex-col space-y-2 border-t border-gray-800">
             <input type="text" v-model="globalSearch" @keyup.enter="searchAction" placeholder="Cari ukuran dokumen..." class="bg-gray-900 border border-gray-700 rounded p-2 text-sm mb-2">
             <a href="#/" @click.prevent="navigate('/'); mobileMenu=false" class="py-2 border-b border-gray-800">Beranda</a>
@@ -78,7 +73,6 @@
         </div>
     </header>
 
-    <!-- BREADCRUMBS -->
     <div class="bg-gray-950 border-b border-gray-800 text-xs text-gray-500">
         <div class="container mx-auto px-4 py-2 flex items-center space-x-2">
             <span @click="navigate('/')" class="cursor-pointer hover:text-red-500">Home</span>
@@ -87,12 +81,10 @@
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
     <main class="min-h-screen">
         
         <!-- BERANDA -->
         <div v-if="route === '/'">
-            <!-- Hero Section -->
             <section class="relative py-20 md:py-32 px-4 text-center overflow-hidden border-b border-gray-800">
                 <div class="absolute inset-0 opacity-20 flex items-center justify-center pointer-events-none">
                     <div class="w-[600px] h-[600px] border-4 border-red-600 rotate-12 rounded-3xl"></div>
@@ -110,7 +102,6 @@
                 </div>
             </section>
 
-            <!-- Fitur Utama -->
             <section class="py-20 px-4 max-w-6xl mx-auto">
                 <div class="text-center mb-12">
                     <h3 class="text-3xl font-black mb-2">FITUR UNGGULAN</h3>
@@ -127,7 +118,6 @@
                 </div>
             </section>
 
-            <!-- CTA Section -->
             <section class="bg-red-600 text-white py-16 px-4 text-center">
                 <div class="max-w-2xl mx-auto">
                     <h3 class="text-3xl font-black mb-4">Siap Memproses Dokumen Anda?</h3>
@@ -142,7 +132,6 @@
             <div class="container mx-auto px-4 py-8">
                 <h2 class="text-3xl font-black mb-6 text-center">EDITOR DOKUMEN</h2>
                 
-                <!-- Upload Area -->
                 <div v-if="files.length === 0" class="max-w-3xl mx-auto bg-gray-900 border-2 border-dashed border-gray-700 rounded-lg p-12 text-center hover:border-red-600 transition">
                     <input type="file" @change="handleUpload" accept="image/jpeg,image/png,image/webp" multiple class="hidden" ref="fileInput">
                     <input type="file" @change="handleCamera" accept="image/*" capture="user" class="hidden" ref="cameraInput">
@@ -169,9 +158,7 @@
                     </div>
                 </div>
 
-                <!-- Editor Area -->
                 <div v-if="files.length > 0" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <!-- Sidebar Kiri (File List) -->
                     <aside class="lg:col-span-3 bg-gray-900 p-4 rounded-lg h-fit border border-gray-800">
                         <div class="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
                             <h4 class="font-bold text-sm">FILE LIST ({{ files.length }})</h4>
@@ -191,7 +178,6 @@
                         <input type="file" @change="handleUpload" accept="image/jpeg,image/png,image/webp" multiple class="hidden" ref="fileInput">
                     </aside>
 
-                    <!-- Canvas Area -->
                     <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded flex-wrap gap-2">
                             <button @click="adjustZoom(-0.2)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
@@ -228,31 +214,27 @@
                         </div>
                     </section>
 
-                    <!-- Sidebar Kanan (Settings) -->
                     <aside class="lg:col-span-3 bg-gray-900 p-4 rounded-lg h-fit border border-gray-800">
                         <h4 class="font-bold text-sm mb-4 border-b border-gray-800 pb-2">PENGATURAN</h4>
                         
-                        <!-- Ukuran -->
                         <div class="mb-4">
                             <label class="block text-xs font-bold mb-1 text-gray-400">PILIH UKURAN DOKUMEN</label>
-                            <select v-model="settings.selectedSize" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                            <select v-model="settings.selectedSize" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
                                 <optgroup v-for="cat in documentSizes" :label="cat.category" :key="cat.category">
                                     <option v-for="doc in cat.items" :key="doc.name" :value="doc.name">{{ doc.name }} — {{ doc.w }} × {{ doc.h }} cm</option>
                                 </optgroup>
                             </select>
                         </div>
 
-                        <!-- Orientasi -->
                         <div class="mb-4">
                             <label class="block text-xs font-bold mb-1 text-gray-400">ORIENTASI</label>
-                            <select v-model="settings.orientation" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                            <select v-model="settings.orientation" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
                                 <option value="auto">AUTO (Berdasarkan Dokumen)</option>
                                 <option value="portrait">PORTRAIT (Tegak)</option>
                                 <option value="landscape">LANDSCAPE (Tidur)</option>
                             </select>
                         </div>
 
-                        <!-- Custom Size -->
                         <div class="mb-4 p-2 border border-dashed border-gray-700 rounded">
                             <label class="block text-xs font-bold mb-1 text-gray-400">CUSTOM SIZE (CM)</label>
                             <div class="flex space-x-2">
@@ -261,10 +243,9 @@
                             </div>
                         </div>
 
-                        <!-- DPI -->
                         <div class="mb-4">
                             <label class="block text-xs font-bold mb-1 text-gray-400">DPI</label>
-                            <select v-model="settings.dpi" @change="updateDpiInfo" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
+                            <select v-model="settings.dpi" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
                                 <option value="72">72 DPI</option>
                                 <option value="96">96 DPI</option>
                                 <option value="150">150 DPI</option>
@@ -273,16 +254,16 @@
                             </select>
                         </div>
 
-                        <!-- Edit Filters (Real-time preview update via @input) -->
+                        <!-- Edit Filters (Real-time preview update via Vue Watcher) -->
                         <div class="mb-4 space-y-2">
                             <label class="block text-xs font-bold mb-1 text-gray-400">EDIT GAMBAR (REAL-TIME)</label>
                             <div class="flex justify-between text-xs"><span>Brightness</span><span>{{ settings.brightness }}%</span></div>
-                            <input type="range" v-model="settings.brightness" @input="drawCanvas" min="50" max="150" class="w-full accent-red-600">
+                            <input type="range" v-model="settings.brightness" min="50" max="150" class="w-full accent-red-600">
                             
                             <div class="flex justify-between text-xs"><span>Contrast</span><span>{{ settings.contrast }}%</span></div>
-                            <input type="range" v-model="settings.contrast" @input="drawCanvas" min="50" max="150" class="w-full accent-red-600">
+                            <input type="range" v-model="settings.contrast" min="50" max="150" class="w-full accent-red-600">
                             
-                            <select v-model="settings.colorMode" @change="drawCanvas" class="w-full bg-black border border-gray-700 rounded p-2 text-sm mt-2">
+                            <select v-model="settings.colorMode" class="w-full bg-black border border-gray-700 rounded p-2 text-sm mt-2">
                                 <option value="original">Original Color</option>
                                 <option value="grayscale">Grayscale</option>
                                 <option value="bw">Black & White</option>
@@ -290,13 +271,11 @@
                             <button @click="resetEdit" class="text-xs text-red-600 hover:underline mt-1">RESET EDIT</button>
                         </div>
 
-                        <!-- Export Info -->
                         <div class="bg-black p-3 rounded text-xs space-y-1 mb-4 border border-gray-800">
                             <div class="flex justify-between"><span>Ukuran:</span> <span class="text-red-600 font-bold">{{ getSelectedSize().w }} × {{ getSelectedSize().h }} cm</span></div>
                             <div class="flex justify-between"><span>Resolusi:</span> <span class="text-red-600 font-bold">{{ getPixelSize().w }} × {{ getPixelSize().h }} px</span></div>
                         </div>
 
-                        <!-- Export Buttons -->
                         <div class="space-y-2 border-t border-gray-800 pt-4">
                             <p class="text-xs font-bold text-gray-400">EXPORT FILE</p>
                             <button @click="exportFile('jpg')" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded flex items-center justify-center gap-2">DOWNLOAD JPG</button>
@@ -304,7 +283,6 @@
                             <button @click="exportFile('pdf')" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2 rounded flex items-center justify-center gap-2">DOWNLOAD PDF</button>
                         </div>
                         
-                        <!-- Batch Action -->
                         <div class="mt-6 pt-4 border-t border-gray-800 space-y-2">
                             <button @click="batchProcess" class="w-full bg-white hover:bg-gray-200 text-black text-sm font-bold py-2 rounded">AUTO CROP ALL</button>
                             <button @click="downloadAllZip" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold py-2 rounded">DOWNLOAD ALL (ZIP)</button>
@@ -378,7 +356,6 @@
     <footer class="bg-gray-950 border-t border-gray-800 py-12 mt-10">
         <div class="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8 text-sm">
             
-            <!-- 1. Brand Info & Description -->
             <div class="md:col-span-1">
                 <div class="flex items-center gap-3 mb-4">
                     <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo" class="w-10 h-10 object-contain">
@@ -389,7 +366,6 @@
                 </p>
             </div>
 
-            <!-- 2. Navigasi Menu -->
             <div>
                 <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Navigasi</h5>
                 <ul class="space-y-2 text-gray-400">
@@ -401,7 +377,6 @@
                 </ul>
             </div>
 
-            <!-- 3. Legalitas -->
             <div>
                 <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Legalitas</h5>
                 <ul class="space-y-2 text-gray-400">
@@ -412,7 +387,6 @@
                 </ul>
             </div>
 
-            <!-- 4. Kontak -->
             <div>
                 <h5 class="font-bold mb-4 text-white text-sm uppercase tracking-wider">Kontak Kami</h5>
                 <ul class="space-y-3 text-gray-400">
@@ -432,13 +406,11 @@
             </div>
         </div>
         
-        <!-- Copyright -->
         <div class="container mx-auto px-4 mt-10 text-center text-xs text-gray-600 border-t border-gray-800 pt-6">
             © 2026 Karya Abadi Crop. All Rights Reserved. Email: karyaabadi24434@gmail.com, Tlp. 085117124247, Subang, Indonesia.
         </div>
     </footer>
 
-    <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="toast fixed bottom-8 right-8 bg-gray-900 border-l-4 border-red-600 text-white px-6 py-4 rounded shadow-xl z-50 max-w-xs">
         <p class="font-bold text-sm">{{ toast.title }}</p>
         <p class="text-xs text-gray-400 mt-1">{{ toast.msg }}</p>
@@ -461,7 +433,6 @@ createApp({
         const searchSize = ref('');
         const globalSearch = ref('');
         
-        // Toast Notification
         const toast = reactive({ show: false, title: '', msg: '' });
         const showToast = (title, msg) => {
             toast.title = title;
@@ -472,7 +443,7 @@ createApp({
 
         const settings = reactive({
             selectedSize: 'A4',
-            orientation: 'auto', // auto, portrait, landscape
+            orientation: 'auto',
             customW: 21,
             customH: 29.7,
             dpi: 300,
@@ -526,12 +497,17 @@ createApp({
             { q: 'Apakah file disimpan di server?', a: 'Tidak. Semua proses terjadi di browser Anda (client-side) demi keamanan dan privasi.' }
         ];
 
-        // Canvas State
         let canvas, ctx, img;
         let zoom = 1;
         let points = ref([]);
         let isDragging = false;
         let dragIndex = -1;
+
+        // VUE DEEP WATCHER: Mengawasi setiap perubahan pada settings (Brightness, Contrast, Color Mode, dll)
+        // Jika ada perubahan, langsung panggil drawCanvas() untuk update real-time
+        watch(() => settings, () => {
+            drawCanvas();
+        }, { deep: true });
 
         const navigate = (path) => {
             route.value = path;
@@ -606,7 +582,6 @@ createApp({
             if (!img || !canvas) return;
             const containerW = canvas.parentElement.clientWidth;
             const containerH = canvas.parentElement.clientHeight;
-            // Fit to screen initially
             zoom = Math.min(containerW / img.width, containerH / img.height) * 0.9;
             drawCanvas();
         };
@@ -634,6 +609,7 @@ createApp({
             canvas.width = w;
             canvas.height = h;
             
+            // Apply filters dynamically berdasarkan settings (Real-time)
             let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
             if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
             if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
@@ -642,6 +618,7 @@ createApp({
             ctx.drawImage(img, 0, 0, w, h);
             ctx.filter = 'none';
 
+            // Draw Crop Points
             ctx.strokeStyle = '#dc2626';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
@@ -666,7 +643,6 @@ createApp({
             });
         };
 
-        // Mouse Events
         const startDrag = (e) => {
             const rect = canvas.getBoundingClientRect();
             const mx = e.clientX - rect.left;
@@ -698,7 +674,6 @@ createApp({
             dragIndex = -1;
         };
 
-        // Touch Events for Mobile
         const startDragTouch = (e) => {
             if (!e.touches[0]) return;
             const rect = canvas.getBoundingClientRect();
@@ -707,7 +682,7 @@ createApp({
             
             for(let i=0; i<points.value.length; i++) {
                 const p = points.value[i];
-                if (Math.hypot(p.x - mx, p.y - my) < 25) { // Larger hitbox for touch
+                if (Math.hypot(p.x - mx, p.y - my) < 25) {
                     isDragging = true;
                     dragIndex = i;
                     break;
@@ -732,7 +707,6 @@ createApp({
             await new Promise(r => setTimeout(r, 100));
 
             try {
-                // Draw to offscreen canvas for analysis
                 const offCanvas = document.createElement('canvas');
                 offCanvas.width = img.width;
                 offCanvas.height = img.height;
@@ -741,12 +715,11 @@ createApp({
                 const imgData = offCtx.getImageData(0, 0, img.width, img.height);
                 const data = imgData.data;
 
-                // Get background color (assuming corners are background)
                 const bgR = data[0], bgG = data[1], bgB = data[2];
 
                 let minX = img.width, maxX = 0, minY = img.height, maxY = 0;
-                const threshold = 40; // Color difference threshold
-                const step = 4; // Sample every 4 pixels for performance
+                const threshold = 40;
+                const step = 4;
 
                 for (let y = 0; y < img.height; y += step) {
                     for (let x = 0; x < img.width; x += step) {
@@ -763,7 +736,6 @@ createApp({
                 }
 
                 if (minX < maxX && minY < maxY) {
-                    // Add a small padding and map to zoom coordinates
                     const pad = 10;
                     minX = Math.max(0, minX - pad);
                     maxX = Math.min(img.width, maxX + pad);
@@ -808,7 +780,7 @@ createApp({
             settings.brightness = 100;
             settings.contrast = 100;
             settings.colorMode = 'original';
-            drawCanvas();
+            // drawCanvas akan otomatis dipanggil oleh Vue Watcher
         };
 
         const getSelectedSize = () => {
@@ -826,14 +798,13 @@ createApp({
                     }
                 }
             }
-            if (!baseW || !baseH) return { w: 21, h: 29.7 }; // fallback
+            if (!baseW || !baseH) return { w: 21, h: 29.7 };
 
             if (settings.orientation === 'landscape') {
                 return { w: Math.max(baseW, baseH), h: Math.min(baseW, baseH) };
             } else if (settings.orientation === 'portrait') {
                 return { w: Math.min(baseW, baseH), h: Math.max(baseW, baseH) };
             } else {
-                // Auto
                 return { w: baseW, h: baseH };
             }
         };
@@ -846,8 +817,6 @@ createApp({
                 h: Math.round((size.h / 2.54) * dpi)
             };
         };
-
-        const updateDpiInfo = () => { drawCanvas(); };
 
         const generateProcessedImage = () => {
             return new Promise((resolve) => {
@@ -1023,7 +992,7 @@ createApp({
             features, documentSizes, faqs, filteredSizes,
             navigate, searchAction, handleUpload, handleCamera, selectFile,
             adjustZoom, resetView, autoCrop, resetCrop, rotateImage, resetEdit,
-            getSelectedSize, getPixelSize, updateDpiInfo, exportFile,
+            getSelectedSize, getPixelSize, exportFile,
             batchProcess, downloadAllZip, deleteFile, clearAllFiles, useSize,
             startDrag, onDrag, endDrag, startDragTouch, onDragTouch
         };

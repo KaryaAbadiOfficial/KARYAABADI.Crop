@@ -22,7 +22,8 @@
         .nav-link:hover::after, .nav-link.active::after { width: 100%; }
         .btn-primary { background-color: #dc2626; transition: background-color 0.3s; }
         .btn-primary:hover { background-color: #b91c1c; }
-        .crop-wrapper { position: relative; height: 600px; overflow: auto; background: #000; border-radius: 8px; }
+        .crop-wrapper { position: relative; height: 600px; overflow: auto; background: #000; border-radius: 8px; cursor: grab; }
+        .crop-wrapper:active { cursor: grabbing; }
         .crop-container { position: relative; user-select: none; touch-action: none; display: flex; align-items: center; justify-content: center; min-height: 100%; min-width: 100%; }
         .toast { animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
@@ -180,16 +181,17 @@
 
                     <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
                         <div class="flex justify-center items-center mb-4 space-x-1 bg-black p-2 rounded flex-wrap gap-2">
-                            <button @click="adjustZoom(-0.2)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
-                            <button @click="adjustZoom(0.2)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
+                            <button @click="adjustZoom(-0.5)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom -</button>
+                            <button @click="adjustZoom(0.5)" class="p-2 hover:bg-gray-800 rounded text-sm">Zoom +</button>
                             <button @click="resetView" class="p-2 hover:bg-gray-800 rounded text-xs">Fit Screen</button>
                             <div class="w-px h-6 bg-gray-700 mx-2"></div>
                             <button @click="rotateImage(-90)" class="p-2 hover:bg-gray-800 rounded text-sm">↺ Kiri</button>
                             <button @click="rotateImage(90)" class="p-2 hover:bg-gray-800 rounded text-sm">Kanan ↻</button>
-                            <span class="p-2 text-xs text-gray-400">Zoom: {{ Math.round(zoom * 100) }}%</span>
+                            <span class="p-2 text-xs text-gray-400">Zoom: {{ Math.round(zoom * 100) }}% (Scroll bebas)</span>
                         </div>
                         
-                        <div class="crop-wrapper">
+                        <!-- Tambah @wheel.prevent untuk scroll mouse zoom -->
+                        <div class="crop-wrapper" @wheel.prevent="handleWheelZoom">
                             <div class="crop-container">
                                 <canvas id="mainCanvas" 
                                     @mousedown="startDrag" 
@@ -243,15 +245,10 @@
                             </div>
                         </div>
 
+                        <!-- Resolusi diubah menjadi statis 100 Pixels/cm -->
                         <div class="mb-4">
-                            <label class="block text-xs font-bold mb-1 text-gray-400">DPI</label>
-                            <select v-model="settings.dpi" class="w-full bg-black border border-gray-700 rounded p-2 text-sm">
-                                <option value="72">72 DPI</option>
-                                <option value="96">96 DPI</option>
-                                <option value="150">150 DPI</option>
-                                <option value="300" selected>300 DPI (Cetak)</option>
-                                <option value="600">600 DPI</option>
-                            </select>
+                            <label class="block text-xs font-bold mb-1 text-gray-400">RESOLUSI</label>
+                            <div class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-sm text-gray-300 cursor-not-allowed">100 PIXELS/CM (Tetap)</div>
                         </div>
 
                         <div class="mb-4 space-y-2">
@@ -320,9 +317,9 @@
                 <ol class="list-decimal list-inside space-y-3 text-gray-300">
                     <li>Upload foto dokumen atau ambil foto langsung.</li>
                     <li>Klik tombol AUTO DETECT & CROP untuk memotong otomatis.</li>
-                    <li>Sesuaikan titik crop secara manual jika diperlukan (Gunakan Zoom untuk presisi).</li>
+                    <li>Sesuaikan titik crop secara manual jika diperlukan. <strong>Gunakan roda mouse (scroll) untuk zoom bebas.</strong></li>
                     <li>Pilih ukuran dokumen (misal: KTP, A4) dan orientasi (Portrait/Landscape).</li>
-                    <li>Pilih DPI (300 DPI direkomendasikan untuk cetak).</li>
+                    <li>Resolusi otomatis diatur ke 100 Pixels/cm untuk kualitas cetak standar.</li>
                     <li>Pilih format export (JPG, PNG, atau PDF).</li>
                     <li>Klik tombol Download untuk menyimpan sesuai ukuran fisik.</li>
                 </ol>
@@ -360,7 +357,6 @@
                     <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo" class="w-10 h-10 object-contain">
                     <h4 class="text-lg font-black text-white">KARYA ABADI <span class="text-red-600">CROP</span></h4>
                 </div>
-                <!-- Teks deskripsi footer diubah menjadi justify rata kiri-kanan (text-justify) dan padat (leading-snug) -->
                 <p class="text-gray-400 mb-4 text-justify leading-snug">
                     Platform online untuk memotong (crop), meluruskan, dan menyesuaikan ukuran dokumen secara presisi. Cocok untuk KTP, Ijazah, Sertifikat, dan dokumen lainnya.
                 </p>
@@ -446,7 +442,6 @@ createApp({
             orientation: 'auto',
             customW: 21,
             customH: 29.7,
-            dpi: 300,
             brightness: 100,
             contrast: 100,
             colorMode: 'original'
@@ -456,7 +451,7 @@ createApp({
             { title: 'AUTO CROP', desc: 'Deteksi batas dokumen secara otomatis menggunakan algoritma deteksi tepi.' },
             { title: 'PERSPECTIVE CORRECTION', desc: 'Meluruskan dokumen yang difoto dari sudut miring secara presisi.' },
             { title: 'UKURAN CM', desc: 'Atur ukuran dokumen secara presisi dalam centimeter sesuai standar cetak.' },
-            { title: 'DPI CONFIGURATION', desc: 'Pilih resolusi 72 sampai 600 DPI untuk hasil cetak yang tajam.' },
+            { title: 'RESOLUSI 100 PX/CM', desc: 'Resolusi otomatis 100 pixels per centimeter untuk hasil yang tajam.' },
             { title: 'MULTI FILE (BATCH)', desc: 'Proses banyak gambar sekaligus dan download dalam format ZIP.' },
             { title: 'MULTI FORMAT EXPORT', desc: 'Download hasil dalam JPG, PNG, atau PDF dengan ukuran fisik akurat.' }
         ];
@@ -489,16 +484,16 @@ createApp({
 
         const faqs = [
             { q: 'Apa itu Auto Crop?', a: 'Fitur untuk mendeteksi batas dokumen pada gambar dan memotongnya secara otomatis.' },
-            { q: 'Apa fungsi DPI?', a: 'DPI (Dots Per Inch) menentukan resolusi cetak. Semakin tinggi DPI, semakin tajam hasil cetak.' },
-            { q: 'Berapa DPI untuk mencetak?', a: 'Standar cetak yang disarankan adalah 300 DPI.' },
-            { q: 'Apakah KTP dapat di-crop?', a: 'Ya, kami menyediakan ukuran KTP (8.56 x 5.40 cm) yang presisi.' },
+            { q: 'Apa fungsi 100 Pixels/cm?', a: 'Resolusi 100 pixels per centimeter menentukan ketajaman cetak. 1 cm = 100 px.' },
+            { q: 'Berapa resolusi KTP?', a: 'KTP berukuran 8.56x5.40 cm, sehingga resolusi hasilnya adalah 856x540 px.' },
+            { q: 'Apakah KTP dapat di-crop?', a: 'Ya, kami menyediakan ukuran KTP yang presisi.' },
             { q: 'Apakah bisa memproses banyak foto?', a: 'Ya, gunakan fitur Batch Processing dan Download All dalam format ZIP.' },
             { q: 'Apakah hasil dapat disimpan sebagai PDF?', a: 'Ya, sistem akan membuat file PDF dengan ukuran fisik yang sesuai.' },
             { q: 'Apakah file disimpan di server?', a: 'Tidak. Semua proses terjadi di browser Anda (client-side) demi keamanan dan privasi.' }
         ];
 
         let canvas, ctx, img;
-        let zoom = 1;
+        const zoom = ref(1); // Menggunakan ref agar UI persentase zoom reaktif
         let points = ref([]);
         let isDragging = false;
         let dragIndex = -1;
@@ -581,19 +576,25 @@ createApp({
             if (!img || !canvas) return;
             const containerW = canvas.parentElement.clientWidth;
             const containerH = canvas.parentElement.clientHeight;
-            zoom = Math.min(containerW / img.width, containerH / img.height) * 0.9;
+            zoom.value = Math.min(containerW / img.width, containerH / img.height) * 0.9;
             drawCanvas();
         };
 
         const adjustZoom = (delta) => {
-            zoom = Math.max(0.1, Math.min(20, zoom + delta));
+            zoom.value = Math.max(0.05, Math.min(50, zoom.value + delta)); // Zoom bebas dari 5% hingga 5000%
             drawCanvas();
+        };
+
+        // Fungsi Zoom menggunakan Scroll Mouse
+        const handleWheelZoom = (e) => {
+            const delta = e.deltaY > 0 ? -0.2 : 0.2; // Scrolling down zooms out, scrolling up zooms in
+            adjustZoom(delta);
         };
 
         const initCropPoints = () => {
             if (!img) return;
-            const w = img.width * zoom;
-            const h = img.height * zoom;
+            const w = img.width * zoom.value;
+            const h = img.height * zoom.value;
             const offset = Math.min(w, h) * 0.1;
             points.value = [
                 { x: offset, y: offset }, { x: w - offset, y: offset },
@@ -603,8 +604,8 @@ createApp({
 
         const drawCanvas = () => {
             if (!img || !canvas) return;
-            const w = img.width * zoom;
-            const h = img.height * zoom;
+            const w = img.width * zoom.value;
+            const h = img.height * zoom.value;
             canvas.width = w;
             canvas.height = h;
             
@@ -741,10 +742,10 @@ createApp({
                     maxY = Math.min(img.height, maxY + pad);
 
                     points.value = [
-                        { x: minX * zoom, y: minY * zoom },
-                        { x: maxX * zoom, y: minY * zoom },
-                        { x: minX * zoom, y: maxY * zoom },
-                        { x: maxX * zoom, y: maxY * zoom }
+                        { x: minX * zoom.value, y: minY * zoom.value },
+                        { x: maxX * zoom.value, y: minY * zoom.value },
+                        { x: minX * zoom.value, y: maxY * zoom.value },
+                        { x: maxX * zoom.value, y: maxY * zoom.value }
                     ];
                     drawCanvas();
                     status.value = 'Selesai. Dokumen terdeteksi.';
@@ -778,7 +779,6 @@ createApp({
             settings.brightness = 100;
             settings.contrast = 100;
             settings.colorMode = 'original';
-            // drawCanvas akan otomatis dipanggil oleh Vue Watcher
         };
 
         const getSelectedSize = () => {
@@ -807,12 +807,13 @@ createApp({
             }
         };
 
+        // Rumus resolusi 100 pixels per centimeter
         const getPixelSize = () => {
             const size = getSelectedSize();
-            const dpi = parseInt(settings.dpi);
+            const res = 100; 
             return {
-                w: Math.round((size.w / 2.54) * dpi),
-                h: Math.round((size.h / 2.54) * dpi)
+                w: Math.round(size.w * res),
+                h: Math.round(size.h * res)
             };
         };
 
@@ -832,10 +833,10 @@ createApp({
                 tempCtx.filter = filter;
                 tempCtx.drawImage(img, 0, 0);
                 
-                const minX = Math.min(...points.value.map(p => p.x / zoom));
-                const maxX = Math.max(...points.value.map(p => p.x / zoom));
-                const minY = Math.min(...points.value.map(p => p.y / zoom));
-                const maxY = Math.max(...points.value.map(p => p.y / zoom));
+                const minX = Math.min(...points.value.map(p => p.x / zoom.value));
+                const maxX = Math.max(...points.value.map(p => p.x / zoom.value));
+                const minY = Math.min(...points.value.map(p => p.y / zoom.value));
+                const maxY = Math.max(...points.value.map(p => p.y / zoom.value));
                 const cropW = maxX - minX;
                 const cropH = maxY - minY;
 
@@ -989,7 +990,7 @@ createApp({
             fileInput, cameraInput, settings,
             features, documentSizes, faqs, filteredSizes,
             navigate, searchAction, handleUpload, handleCamera, selectFile,
-            adjustZoom, resetView, autoCrop, resetCrop, rotateImage, resetEdit,
+            adjustZoom, handleWheelZoom, resetView, autoCrop, resetCrop, rotateImage, resetEdit,
             getSelectedSize, getPixelSize, exportFile,
             batchProcess, downloadAllZip, deleteFile, clearAllFiles, useSize,
             startDrag, onDrag, endDrag, startDragTouch, onDragTouch

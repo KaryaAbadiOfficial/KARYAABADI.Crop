@@ -175,7 +175,7 @@
                             </div>
                         </div>
                         <button @click="$refs.fileInput.click()" class="mt-4 w-full bg-gray-800 text-white text-sm py-2 rounded hover:bg-gray-700 border border-gray-700">+ TAMBAH FILE</button>
-                        <input type="file" @change="handleUpload" accept="image/jpeg,image/png,image/webp" multiple class="hidden" ref="fileInput">
+                        <input type="file" @change="handleUpload" accept="image/jpeg,image/png/image/webp" multiple class="hidden" ref="fileInput">
                     </aside>
 
                     <section class="lg:col-span-6 bg-gray-900 p-4 rounded-lg border border-gray-800">
@@ -254,7 +254,6 @@
                             </select>
                         </div>
 
-                        <!-- Edit Filters (Real-time preview update via Vue Watcher) -->
                         <div class="mb-4 space-y-2">
                             <label class="block text-xs font-bold mb-1 text-gray-400">EDIT GAMBAR (REAL-TIME)</label>
                             <div class="flex justify-between text-xs"><span>Brightness</span><span>{{ settings.brightness }}%</span></div>
@@ -361,7 +360,8 @@
                     <img src="https://z-cdn-media.chatglm.cn/files/e7a6ee96-cfec-4a74-8c52-d39ff3f1c8e0.png?auth_key=1891164396-b2f86e9488ff4ca9a3510abbb7250131-0-1fc4a6ee6afd147918ed123104535ab2" alt="Logo" class="w-10 h-10 object-contain">
                     <h4 class="text-lg font-black text-white">KARYA ABADI <span class="text-red-600">CROP</span></h4>
                 </div>
-                <p class="text-gray-400 mb-4 leading-relaxed">
+                <!-- Teks deskripsi footer diubah menjadi justify rata kiri-kanan (text-justify) dan padat (leading-snug) -->
+                <p class="text-gray-400 mb-4 text-justify leading-snug">
                     Platform online untuk memotong (crop), meluruskan, dan menyesuaikan ukuran dokumen secara presisi. Cocok untuk KTP, Ijazah, Sertifikat, dan dokumen lainnya.
                 </p>
             </div>
@@ -503,8 +503,7 @@ createApp({
         let isDragging = false;
         let dragIndex = -1;
 
-        // VUE DEEP WATCHER: Mengawasi setiap perubahan pada settings (Brightness, Contrast, Color Mode, dll)
-        // Jika ada perubahan, langsung panggil drawCanvas() untuk update real-time
+        // Vue Deep Watcher untuk update real-time pada slider/option edit gambar
         watch(() => settings, () => {
             drawCanvas();
         }, { deep: true });
@@ -609,7 +608,7 @@ createApp({
             canvas.width = w;
             canvas.height = h;
             
-            // Apply filters dynamically berdasarkan settings (Real-time)
+            // Apply real-time filters
             let filter = `brightness(${settings.brightness}%) contrast(${settings.contrast}%)`;
             if (settings.colorMode === 'grayscale') filter += ' grayscale(100%)';
             if (settings.colorMode === 'bw') filter += ' grayscale(100%) contrast(200%)';
@@ -618,7 +617,6 @@ createApp({
             ctx.drawImage(img, 0, 0, w, h);
             ctx.filter = 'none';
 
-            // Draw Crop Points
             ctx.strokeStyle = '#dc2626';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
